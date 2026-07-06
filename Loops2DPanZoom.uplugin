@@ -1,0 +1,24 @@
+{
+	"FileVersion": 3,
+	"Version": 1,
+	"VersionName": "1.0",
+	"FriendlyName": "Loops 2D Pan/Zoom",
+	"Description": "2D pan/zoom for the editor viewport: offset and zoom the view to inspect detail",
+	"Category": "Editor",
+	"CreatedBy": "Loops Creative Studio",
+	"CreatedByURL": "https://loopscreativestudio.com",
+	"DocsURL": "https://loopscreativestudio.com/loops2dpanzoom/",
+	"MarketplaceURL": "",
+	"SupportURL": "",
+	"EnabledByDefault": true,
+	"CanContainContent": false,
+	"IsBetaVersion": true,
+	"Installed": false,
+	"Modules": [
+		{
+			"Name": "Loops2DPanZoom",
+			"Type": "Editor",
+			"LoadingPhase": "PostEngineInit"
+		}
+	]
+}
