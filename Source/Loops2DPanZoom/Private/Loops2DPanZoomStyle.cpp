@@ -1,3 +1,5 @@
+// Copyright 2026 Loops Creative Studio. All Rights Reserved.
+
 #include "Loops2DPanZoomStyle.h"
 #include "Styling/SlateStyleRegistry.h"
 #include "Interfaces/IPluginManager.h"

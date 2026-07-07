@@ -1,3 +1,5 @@
+// Copyright 2026 Loops Creative Studio. All Rights Reserved.
+
 #include "Loops2DPanZoomOverlay.h"
 #include "Loops2DPanZoomSubsystem.h"
 #include "EditorViewportClient.h"

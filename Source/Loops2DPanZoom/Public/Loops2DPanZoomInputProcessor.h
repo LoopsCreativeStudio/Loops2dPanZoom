@@ -1,3 +1,5 @@
+// Copyright 2026 Loops Creative Studio. All Rights Reserved.
+
 #pragma once
 #include "CoreMinimal.h"
 #include "Framework/Application/IInputProcessor.h"

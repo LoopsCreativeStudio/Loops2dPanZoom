@@ -1,3 +1,5 @@
+// Copyright 2026 Loops Creative Studio. All Rights Reserved.
+
 using UnrealBuildTool;
 
 public class Loops2DPanZoom : ModuleRules
