@@ -36,3 +36,4 @@ viewport is locked to Camera Cuts.
 
 The viewport's "Allow Cinematic Control" option must be
 unchecked for 2D Pan/Zoom to actually drive the camera.
+
