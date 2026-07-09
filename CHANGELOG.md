@@ -1,5 +1,17 @@
 # Changelog
 
+## [1.3.0](https://github.com/LoopsCreativeStudio/Loops2dPanZoom/compare/v1.2.0...v1.3.0) (2026-07-09)
+
+
+### Features
+
+* Add lock camera on selected control rig ([5ec9d85](https://github.com/LoopsCreativeStudio/Loops2dPanZoom/commit/5ec9d85179a6f7f0510956945dfde5117ef9eab5))
+
+
+### Bug Fixes
+
+* Fix 2D Zoom limit less FOV 5 degree ([886b8fa](https://github.com/LoopsCreativeStudio/Loops2dPanZoom/commit/886b8fa50889767d478e816a7df2b585e35ad4ba))
+
 ## [1.2.0](https://github.com/LoopsCreativeStudio/Loops2dPanZoom/compare/v1.1.0...v1.2.0) (2026-07-09)
 
 
