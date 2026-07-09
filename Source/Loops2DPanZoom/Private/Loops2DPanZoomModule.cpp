@@ -242,7 +242,8 @@ FText FLoops2DPanZoomModule::GetToggleTooltipText() const
 		"Alt+MMB drag to pan (tilts the camera in place)\n"
 		"Alt+RMB drag to zoom (adjusts FOV / ortho zoom)\n"
 		"Numpad 4/6/8/2 to pan, Numpad +/- to zoom\n"
-		"Numpad * to toggle zoom+pan between their current values and 100%\n");
+		"Numpad * to toggle zoom+pan between their current values and 100%\n"
+		"Numpad . to lock the camera to the selected Control Rig control\n");
 
 	if (FEditorViewportClient* Client = Loops2DPanZoom::GetActiveEditorViewportClient())
 	{

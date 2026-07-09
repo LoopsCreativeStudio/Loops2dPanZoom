@@ -36,9 +36,33 @@ namespace Loops2DPanZoomInput
 	}
 }
 
+void FLoops2DPanZoomInputProcessor::Tick(const float DeltaTime, FSlateApplication& SlateApp, TSharedRef<ICursor> Cursor)
+{
+	if (GEditor)
+	{
+		if (ULoops2DPanZoomSubsystem* Subsystem = GEditor->GetEditorSubsystem<ULoops2DPanZoomSubsystem>())
+		{
+			Subsystem->TickAllAnimControlLocks();
+		}
+	}
+}
+
 bool FLoops2DPanZoomInputProcessor::HandleKeyDownEvent(FSlateApplication& SlateApp, const FKeyEvent& InKeyEvent)
 {
 	const FKey Key = InKeyEvent.GetKey();
+
+	if (Key == EKeys::Decimal)
+	{
+		ULoops2DPanZoomSubsystem* Subsystem = GEditor ? GEditor->GetEditorSubsystem<ULoops2DPanZoomSubsystem>() : nullptr;
+		FEditorViewportClient* Client = Loops2DPanZoomInput::GetActiveEditorViewportClient();
+		if (!Subsystem || !Client)
+		{
+			return false;
+		}
+
+		Subsystem->ToggleAnimControlLock(Client);
+		return true;
+	}
 
 	if (Key == EKeys::Slash || Key == EKeys::Divide)
 	{

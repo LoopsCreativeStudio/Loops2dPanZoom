@@ -37,6 +37,12 @@ struct FLoops2DPanZoomState
 	float BaseOrthoZoom = 0.0f;
 	UPROPERTY()
 	bool bWasDepthOfFieldEnabled = true;
+	UPROPERTY()
+	bool bAnimControlLockEnabled = false;
+	UPROPERTY()
+	FString AnimControlLockControlName;
+	UPROPERTY()
+	bool bPreToggleAnimControlLockEnabled = false;
 
 	TSharedPtr<SWidget> OverlayWidget;
 };
@@ -55,9 +61,12 @@ class LOOPS2DPANZOOM_API ULoops2DPanZoomSubsystem : public UEditorSubsystem
 		void Zoom(FEditorViewportClient* ViewportClient, float DeltaZoom);
 		void Reset(FEditorViewportClient* ViewportClient);
 		void ToggleZoomTo100Percent(FEditorViewportClient* ViewportClient);
-		bool GetOverlayInfo(const FEditorViewportClient* ViewportClient, float& OutZoomPercent, FVector2D& OutCropSize, FVector2D& OutCropCenterOffset) const;
+		bool GetOverlayInfo(const FEditorViewportClient* ViewportClient, float& OutZoomPercent, FVector2D& OutCropSize, FVector2D& OutCropCenterOffset, bool& OutIsAnimControlLockActive, FString& OutAnimControlLockControlName) const;
 		void TickFollowCameraCut(FEditorViewportClient* ViewportClient);
 		void NotifyCameraCut(UObject* CameraObject);
+		bool IsAnimControlLockEnabled(const FEditorViewportClient* ViewportClient) const;
+		void ToggleAnimControlLock(FEditorViewportClient* ViewportClient);
+		void TickAllAnimControlLocks();
 
 	private:
 		FLoops2DPanZoomState& GetState(FEditorViewportClient* ViewportClient);
@@ -69,6 +78,13 @@ class LOOPS2DPANZOOM_API ULoops2DPanZoomSubsystem : public UEditorSubsystem
 
 		void AddOverlayIfNeeded(FEditorViewportClient* ViewportClient, FLoops2DPanZoomState& State);
 		void RemoveOverlayIfNeeded(FEditorViewportClient* ViewportClient, FLoops2DPanZoomState& State);
+		
+		void RefreshOverlayPresence(FEditorViewportClient* ViewportClient, FLoops2DPanZoomState& State);
+		// Focus on Control Rig
+		bool GetSelectedControlWorldTransform(FTransform& OutTransform, FName* OutControlName = nullptr) const;
+		void UpdateAnimControlLockPan(FEditorViewportClient* ViewportClient, FLoops2DPanZoomState& State, const FVector& ControlWorldLocation);
+		bool EnableAnimControlLock(FEditorViewportClient* ViewportClient, FLoops2DPanZoomState& State);
+		void DisableAnimControlLock(FEditorViewportClient* ViewportClient, FLoops2DPanZoomState& State);
 
 		TMap<FEditorViewportClient*, FLoops2DPanZoomState> ViewportStates;
 		TWeakObjectPtr<UObject> LastCameraCutObject;
