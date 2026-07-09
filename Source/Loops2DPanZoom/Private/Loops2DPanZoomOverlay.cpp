@@ -62,18 +62,30 @@ int32 SLoops2DPanZoomOverlay::OnPaint(const FPaintArgs& Args, const FGeometry& A
 	);
 
 	bool bShowCinematicWarning = false;
-	if (ViewportClient->AllowsCinematicControl() && ViewportClient->IsLevelEditorClient())
+	bool bShowPilotWarning = false;
+	if (ViewportClient->IsLevelEditorClient())
 	{
 		FLevelEditorViewportClient* LevelViewportClient = static_cast<FLevelEditorViewportClient*>(ViewportClient);
-		bShowCinematicWarning = LevelViewportClient->IsLockedToCinematic();
+		if (ViewportClient->AllowsCinematicControl())
+		{
+			bShowCinematicWarning = LevelViewportClient->IsLockedToCinematic();
+		}
+		bShowPilotWarning = LevelViewportClient->IsAnyActorLocked();
 	}
 
-	if (bShowCinematicWarning)
+	if (bShowCinematicWarning || bShowPilotWarning)
 	{
-		static const TArray<FString> WarningLines = {
-			TEXT("Pan/Zoom blocked by camera cut"),
-			TEXT("Disable Allow Cinematic Control")
-		};
+		TArray<FString> WarningLines;
+		if (bShowCinematicWarning)
+		{
+			WarningLines.Add(TEXT("Pan/Zoom blocked by camera cut"));
+			WarningLines.Add(TEXT("Disable Allow Cinematic Control"));
+		}
+		if (bShowPilotWarning)
+		{
+			WarningLines.Add(TEXT("Pan/Zoom blocked by camera pilot"));
+			WarningLines.Add(TEXT("Stop piloting camera"));
+		}
 
 		const FVector2D WarningLineSize(Loops2DPanZoomOverlayLayout::FrameWidth, Loops2DPanZoomOverlayLayout::TextHeight);
 		const float WarningTop = FrameTop;
