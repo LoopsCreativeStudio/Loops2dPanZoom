@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.2.0](https://github.com/LoopsCreativeStudio/Loops2dPanZoom/compare/v1.1.0...v1.2.0) (2026-07-09)
+
+
+### Features
+
+* initial release ([bacea37](https://github.com/LoopsCreativeStudio/Loops2dPanZoom/commit/bacea37355a54a1c7a43af92e06fc13c74789ac9))
+
 ## [1.1.0](https://github.com/LoopsCreativeStudio/Loops2dPanZoom/compare/v1.0.0...v1.1.0) (2026-07-09)
 
 
