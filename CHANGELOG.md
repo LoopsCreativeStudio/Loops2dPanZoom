@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.3.1](https://github.com/LoopsCreativeStudio/Loops2dPanZoom/compare/v1.3.0...v1.3.1) (2026-07-09)
+
+
+### Bug Fixes
+
+* Fix warning camera pilot ([ef620c7](https://github.com/LoopsCreativeStudio/Loops2dPanZoom/commit/ef620c7bc14d4026d173c8bc2bdf7486f632a9a0))
+* Improve refresh viewport on camera lock on control ([1770838](https://github.com/LoopsCreativeStudio/Loops2dPanZoom/commit/17708387d3490de3ddc4fc174a4e9d462d62ea6b))
+
 ## [1.3.0](https://github.com/LoopsCreativeStudio/Loops2dPanZoom/compare/v1.2.0...v1.3.0) (2026-07-09)
 
 
