@@ -7,10 +7,6 @@
 #include "IAssetViewport.h"
 #include "SLevelViewport.h"
 #include "Editor.h"
-#include "Engine/World.h"
-#include "Engine/HitResult.h"
-#include "Engine/EngineTypes.h"
-#include "CollisionQueryParams.h"
 #include "Camera/CameraComponent.h"
 #include "GameFramework/Actor.h"
 
@@ -19,9 +15,9 @@ namespace Loops2DPanZoomLimits
 	// Default Unreal value FOV in viewport, if is possible to change that ?
 	constexpr float MinFOV = 5.0f;
 	constexpr float MaxFOV = 170.0f;
-
-	constexpr float DollyTraceDistance = 1000000.0f; 
-	constexpr float DollyFallbackDistance = 100000.0f; 
+	constexpr float DollyDistancePerZoomDoubling = 400.0f;
+	constexpr float MinZoom = 0.05f;
+	constexpr float MaxZoom = 20000.0f;
 }
 
 namespace Loops2DPanZoomSequencer
@@ -125,23 +121,7 @@ void ULoops2DPanZoomSubsystem::ApplyToCamera(FEditorViewportClient* ViewportClie
 			const float ExcessZoomRatio = SafeZoom / FOVLimitedZoom;
 			const FVector Forward = NewRotation.Vector();
 
-			// TODO : Improve this Part
-			float TargetDistance = Loops2DPanZoomLimits::DollyFallbackDistance;
-			if (UWorld* World = ViewportClient->GetWorld())
-			{
-				const FVector TraceStart = State.BaseLocation;
-				const FVector TraceEnd = TraceStart + Forward * Loops2DPanZoomLimits::DollyTraceDistance;
-				FCollisionQueryParams QueryParams(TEXT("Loops2DPanZoomDollyTrace"), /*bTraceComplex=*/false);
-
-				FHitResult Hit;
-				if (World->LineTraceSingleByChannel(Hit, TraceStart, TraceEnd, ECC_Visibility, QueryParams))
-				{
-					TargetDistance = Hit.Distance;
-				}
-			}
-
-			const float NewDistance = TargetDistance / ExcessZoomRatio;
-			NewLocation += Forward * (TargetDistance - NewDistance);
+			NewLocation += Forward * (Loops2DPanZoomLimits::DollyDistancePerZoomDoubling * FMath::Log2(ExcessZoomRatio));
 		}
 
 		ViewportClient->SetViewRotation(NewRotation);
@@ -377,10 +357,8 @@ void ULoops2DPanZoomSubsystem::Zoom(FEditorViewportClient* ViewportClient, float
 	FLoops2DPanZoomState& State = GetState(ViewportClient);
 	CaptureBaseIfNeeded(ViewportClient, State);
 
-	constexpr float MinZoom = 0.05f;
-	constexpr float MaxZoom = 200.0f;
 	const float ZoomFactor = FMath::Exp(DeltaZoom);
-	State.Zoom = FMath::Clamp(State.Zoom * ZoomFactor, MinZoom, MaxZoom);
+	State.Zoom = FMath::Clamp(State.Zoom * ZoomFactor, Loops2DPanZoomLimits::MinZoom, Loops2DPanZoomLimits::MaxZoom);
 
 	if (State.bEnabled)
 	{
