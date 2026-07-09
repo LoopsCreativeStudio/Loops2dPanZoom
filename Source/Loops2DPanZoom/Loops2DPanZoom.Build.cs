@@ -25,7 +25,9 @@ public class Loops2DPanZoom : ModuleRules
 			"LevelEditor",
 			"ToolMenus",
 			"Projects",
-			"Sequencer"
+			"Sequencer",
+			"ControlRig",
+			"ControlRigEditor"
 		});
 	}
 }
