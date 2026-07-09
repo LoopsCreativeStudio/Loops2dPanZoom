@@ -27,6 +27,10 @@ class FLoops2DPanZoomModule : public IModuleInterface
 		void OnSequencerCameraCut(UObject* CameraObject, bool bJumpCut);
 		void OnSequencerGlobalTimeChanged();
 		void RefreshFollowCameraCutForAllViewports();
+		void ProcessPendingFollowCameraCutRefresh();
+		
+		bool bFollowCameraCutRefreshPending = false;
+		FDelegateHandle EndFrameDelegateHandle;
 
 		TSharedPtr<class FLoops2DPanZoomInputProcessor> InputProcessor;
 		FDelegateHandle SequencerCreatedHandle;

@@ -16,6 +16,7 @@
 #include "ToolMenuDelegates.h"
 #include "ViewportToolbar/UnrealEdViewportToolbarContext.h"
 #include "SEditorViewport.h"
+#include "Misc/CoreDelegates.h"
 
 #define LOCTEXT_NAMESPACE "FLoops2DPanZoomModule"
 
@@ -102,10 +103,14 @@ void FLoops2DPanZoomModule::StartupModule()
 	ISequencerModule& SequencerModule = FModuleManager::LoadModuleChecked<ISequencerModule>("Sequencer");
 	SequencerCreatedHandle = SequencerModule.RegisterOnSequencerCreated(
 		FOnSequencerCreated::FDelegate::CreateRaw(this, &FLoops2DPanZoomModule::OnSequencerCreated));
+
+	EndFrameDelegateHandle = FCoreDelegates::OnEndFrame.AddRaw(this, &FLoops2DPanZoomModule::ProcessPendingFollowCameraCutRefresh);
 }
 
 void FLoops2DPanZoomModule::ShutdownModule()
 {
+	FCoreDelegates::OnEndFrame.Remove(EndFrameDelegateHandle);
+
 	if (FModuleManager::Get().IsModuleLoaded("Sequencer"))
 	{
 		FModuleManager::GetModuleChecked<ISequencerModule>("Sequencer").UnregisterOnSequencerCreated(SequencerCreatedHandle);
@@ -137,11 +142,21 @@ void FLoops2DPanZoomModule::OnSequencerCameraCut(UObject* CameraObject, bool bJu
 			Subsystem->NotifyCameraCut(CameraObject);
 		}
 	}
-	RefreshFollowCameraCutForAllViewports();
+	bFollowCameraCutRefreshPending = true;
 }
 
 void FLoops2DPanZoomModule::OnSequencerGlobalTimeChanged()
 {
+	bFollowCameraCutRefreshPending = true;
+}
+
+void FLoops2DPanZoomModule::ProcessPendingFollowCameraCutRefresh()
+{
+	if (!bFollowCameraCutRefreshPending)
+	{
+		return;
+	}
+	bFollowCameraCutRefreshPending = false;
 	RefreshFollowCameraCutForAllViewports();
 }
 
