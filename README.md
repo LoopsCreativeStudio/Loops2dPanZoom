@@ -22,7 +22,7 @@ view to inspect a detail.
 - **Toggle zoom+pan to 100% / centered**: Numpad `*`. Pressing it again
   restores whatever zoom/pan you had before.
 - **Reset** (zero offset, 100% zoom): `Shift + /`.
-- **Auto focus on selected camera**: `Numpad .`	Lock & Follow the camera to the selected Control Rig control
+- **Auto focus on selected control**: `Numpad .`	Lock & Follow the camera to the selected Control Rig control
 
 Works in any editor mode (Select, Landscape, Rig Editing, etc.), and state is
 stored per viewport, so one panel can be panned/zoomed while another stays
