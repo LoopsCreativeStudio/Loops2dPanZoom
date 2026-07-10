@@ -3,7 +3,7 @@
 "2D Pan/Zoom" in the Unreal editor viewport: zoom/offset the
 view to inspect a detail.
 
-**Description:** The tool drives the viewport's camera non-destructively to pan/zoom in place, similar to Maya's 2D Pan/Zoom. This keeps selection, gizmos, and Control Rig in sync with what's displayed, at the cost of introducing slight perspective distortion at large pan/zoom values (barely noticeable for moderate use).
+**Description:** Loops2DPanZoom drives the viewport's camera non-destructively to pan/zoom in place, similar to Maya's 2D Pan/Zoom, keeping selection, gizmos, and Control Rig in sync (at the cost of slight perspective distortion at large values). It can also auto-lock the camera onto the selected Control Rig control and follow sequencer camera cuts.
 
 ## Installation
 
@@ -22,6 +22,7 @@ view to inspect a detail.
 - **Toggle zoom+pan to 100% / centered**: Numpad `*`. Pressing it again
   restores whatever zoom/pan you had before.
 - **Reset** (zero offset, 100% zoom): `Shift + /`.
+- **Auto focus on selected camera**: `Numpad .`	Lock & Follow the camera to the selected Control Rig control
 
 Works in any editor mode (Select, Landscape, Rig Editing, etc.), and state is
 stored per viewport, so one panel can be panned/zoomed while another stays
