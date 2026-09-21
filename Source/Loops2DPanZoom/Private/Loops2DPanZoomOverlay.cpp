@@ -3,7 +3,6 @@
 #include "Loops2DPanZoomOverlay.h"
 #include "Loops2DPanZoomSubsystem.h"
 #include "EditorViewportClient.h"
-#include "LevelEditorViewport.h"
 #include "Editor.h"
 #include "Rendering/DrawElements.h"
 #include "Styling/CoreStyle.h"
@@ -61,50 +60,6 @@ int32 SLoops2DPanZoomOverlay::OnPaint(const FPaintArgs& Args, const FGeometry& A
 		FLinearColor(0.0f, 0.0f, 0.0f, 0.35f)
 	);
 
-	bool bShowCinematicWarning = false;
-	bool bShowPilotWarning = false;
-	if (ViewportClient->IsLevelEditorClient())
-	{
-		FLevelEditorViewportClient* LevelViewportClient = static_cast<FLevelEditorViewportClient*>(ViewportClient);
-		if (ViewportClient->AllowsCinematicControl())
-		{
-			bShowCinematicWarning = LevelViewportClient->IsLockedToCinematic();
-		}
-		bShowPilotWarning = LevelViewportClient->IsAnyActorLocked();
-	}
-
-	if (bShowCinematicWarning || bShowPilotWarning)
-	{
-		TArray<FString> WarningLines;
-		if (bShowCinematicWarning)
-		{
-			WarningLines.Add(TEXT("Pan/Zoom blocked by camera cut"));
-			WarningLines.Add(TEXT("Disable Allow Cinematic Control"));
-		}
-		if (bShowPilotWarning)
-		{
-			WarningLines.Add(TEXT("Pan/Zoom blocked by camera pilot"));
-			WarningLines.Add(TEXT("Stop piloting camera"));
-		}
-
-		const FVector2D WarningLineSize(Loops2DPanZoomOverlayLayout::FrameWidth, Loops2DPanZoomOverlayLayout::TextHeight);
-		const float WarningTop = FrameTop;
-		const FLinearColor WarningColor(1.0f, 0.65f, 0.0f, 1.0f);
-
-		for (int32 LineIndex = 0; LineIndex < WarningLines.Num(); ++LineIndex)
-		{
-			FSlateDrawElement::MakeText(
-				OutDrawElements,
-				LayerId + 1,
-				AllottedGeometry.ToPaintGeometry(WarningLineSize, FSlateLayoutTransform(FVector2D(FrameLeft, WarningTop + Loops2DPanZoomOverlayLayout::TextHeight * LineIndex))),
-				WarningLines[LineIndex],
-				FCoreStyle::GetDefaultFontStyle("Bold", 8),
-				ESlateDrawEffect::None,
-				WarningColor
-			);
-		}
-	}
-	else
 	{
 		const FVector2D InnerSize(Loops2DPanZoomOverlayLayout::FrameWidth * CropSize.X, Loops2DPanZoomOverlayLayout::FrameHeight * CropSize.Y);
 		const FVector2D InnerCenter(

@@ -9,14 +9,11 @@
 #include "ToolMenus.h"
 #include "Loops2DPanZoomStyle.h"
 #include "Framework/Application/SlateApplication.h"
-#include "ISequencerModule.h"
-#include "ISequencer.h"
 #include "Modules/ModuleManager.h"
 #include "ToolMenuContext.h"
 #include "ToolMenuDelegates.h"
 #include "ViewportToolbar/UnrealEdViewportToolbarContext.h"
 #include "SEditorViewport.h"
-#include "Misc/CoreDelegates.h"
 
 #define LOCTEXT_NAMESPACE "FLoops2DPanZoomModule"
 
@@ -100,22 +97,10 @@ void FLoops2DPanZoomModule::StartupModule()
 	UToolMenus::RegisterStartupCallback(FSimpleMulticastDelegate::FDelegate::CreateRaw(
 		this, &FLoops2DPanZoomModule::RegisterToolbarExtension));
 
-	ISequencerModule& SequencerModule = FModuleManager::LoadModuleChecked<ISequencerModule>("Sequencer");
-	SequencerCreatedHandle = SequencerModule.RegisterOnSequencerCreated(
-		FOnSequencerCreated::FDelegate::CreateRaw(this, &FLoops2DPanZoomModule::OnSequencerCreated));
-
-	EndFrameDelegateHandle = FCoreDelegates::OnEndFrame.AddRaw(this, &FLoops2DPanZoomModule::ProcessPendingFollowCameraCutRefresh);
 }
 
 void FLoops2DPanZoomModule::ShutdownModule()
 {
-	FCoreDelegates::OnEndFrame.Remove(EndFrameDelegateHandle);
-
-	if (FModuleManager::Get().IsModuleLoaded("Sequencer"))
-	{
-		FModuleManager::GetModuleChecked<ISequencerModule>("Sequencer").UnregisterOnSequencerCreated(SequencerCreatedHandle);
-	}
-
 	UnregisterToolbarExtension();
 
 	if (FSlateApplication::IsInitialized() && InputProcessor.IsValid())
@@ -125,58 +110,6 @@ void FLoops2DPanZoomModule::ShutdownModule()
 	InputProcessor.Reset();
 
 	FLoops2DPanZoomStyle::Shutdown();
-}
-
-void FLoops2DPanZoomModule::OnSequencerCreated(TSharedRef<ISequencer> InSequencer)
-{
-	InSequencer->OnCameraCut().AddRaw(this, &FLoops2DPanZoomModule::OnSequencerCameraCut);
-	InSequencer->OnGlobalTimeChanged().AddRaw(this, &FLoops2DPanZoomModule::OnSequencerGlobalTimeChanged);
-}
-
-void FLoops2DPanZoomModule::OnSequencerCameraCut(UObject* CameraObject, bool bJumpCut)
-{
-	if (GEditor)
-	{
-		if (ULoops2DPanZoomSubsystem* Subsystem = GEditor->GetEditorSubsystem<ULoops2DPanZoomSubsystem>())
-		{
-			Subsystem->NotifyCameraCut(CameraObject);
-		}
-	}
-	bFollowCameraCutRefreshPending = true;
-}
-
-void FLoops2DPanZoomModule::OnSequencerGlobalTimeChanged()
-{
-	bFollowCameraCutRefreshPending = true;
-}
-
-void FLoops2DPanZoomModule::ProcessPendingFollowCameraCutRefresh()
-{
-	if (!bFollowCameraCutRefreshPending)
-	{
-		return;
-	}
-	bFollowCameraCutRefreshPending = false;
-	RefreshFollowCameraCutForAllViewports();
-}
-
-void FLoops2DPanZoomModule::RefreshFollowCameraCutForAllViewports()
-{
-	if (!GEditor)
-	{
-		return;
-	}
-
-	if (ULoops2DPanZoomSubsystem* Subsystem = GEditor->GetEditorSubsystem<ULoops2DPanZoomSubsystem>())
-	{
-		for (FEditorViewportClient* Candidate : GEditor->GetAllViewportClients())
-		{
-			if (Candidate)
-			{
-				Subsystem->TickFollowCameraCut(Candidate);
-			}
-		}
-	}
 }
 
 void FLoops2DPanZoomModule::RegisterToolbarExtension()
@@ -254,29 +187,11 @@ FText FLoops2DPanZoomModule::GetToggleTooltipText() const
 		"Loops 2D Pan/Zoom\n"
 		"'/' to toggle\n"
 		"Shift+'/' to reset the view\n"
-		"Alt+MMB drag to pan (tilts the camera in place)\n"
-		"Alt+RMB drag to zoom (adjusts FOV / ortho zoom)\n"
+		"Alt+MMB drag to pan the editor view\n"
+		"Alt+RMB drag to zoom the editor view\n"
 		"Numpad 4/6/8/2 to pan, Numpad +/- to zoom\n"
 		"Numpad * to toggle zoom+pan between their current values and 100%\n"
 		"Numpad . to lock the camera to the selected Control Rig control\n");
-
-	if (FEditorViewportClient* Client = Loops2DPanZoom::GetActiveEditorViewportClient())
-	{
-		if (Client->AllowsCinematicControl() && Client->IsLevelEditorClient())
-		{
-			const FLevelEditorViewportClient* LevelViewportClient = static_cast<FLevelEditorViewportClient*>(Client);
-			if (LevelViewportClient->IsLockedToCinematic())
-			{
-				return FText::Format(
-					LOCTEXT("Loops2DPanZoomToggleTooltipWithWarning", "{0}\n{1}"),
-					BaseTooltip,
-					LOCTEXT("Loops2DPanZoomCinematicWarning", "WARNING: Pan/Zoom blocked by camera cut - disable Allow Cinematic Control")
-				);
-			}
-		}
-	}
-
-	//TODO : Add check Camera Pilot
 
 	return BaseTooltip;
 }
