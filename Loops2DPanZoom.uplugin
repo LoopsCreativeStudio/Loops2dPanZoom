@@ -15,6 +15,12 @@
 	"CanContainContent": false,
 	"IsBetaVersion": true,
 	"Installed": false,
+	"Plugins": [
+		{
+			"Name": "ControlRig",
+			"Enabled": true
+		}
+	],
 	"Modules": [
 		{
 			"Name": "Loops2DPanZoom",

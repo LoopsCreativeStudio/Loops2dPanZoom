@@ -3,7 +3,7 @@
 #pragma once
 #include "CoreMinimal.h"
 #include "Modules/ModuleManager.h"
-#include "Types/SlateEnums.h"
+#include "Styling/SlateTypes.h"
 
 class ISequencer;
 class FEditorViewportClient;
