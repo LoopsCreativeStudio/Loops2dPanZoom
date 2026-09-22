@@ -2,158 +2,121 @@
 
 #include "Loops2DPanZoomInputProcessor.h"
 #include "Loops2DPanZoomSubsystem.h"
+#include "Loops2DPanZoomSettings.h"
 #include "EditorViewportClient.h"
+#include "SEditorViewport.h"
 #include "Editor.h"
 #include "Framework/Application/SlateApplication.h"
+#include "Framework/Commands/UICommandList.h"
 
 namespace Loops2DPanZoomInput
 {
-	static FEditorViewportClient* GetActiveEditorViewportClient()
+	static FEditorViewportClient* GetViewportClientUnderScreenPosition(const FVector2D& ScreenPosition)
 	{
 		if (!GEditor)
 		{
 			return nullptr;
 		}
-		FViewport* ActiveVP = GEditor->GetActiveViewport();
-		if (ActiveVP)
+		for (FEditorViewportClient* Candidate : GEditor->GetAllViewportClients())
 		{
-			for (FEditorViewportClient* Candidate : GEditor->GetAllViewportClients())
+			if (!Candidate)
 			{
-				if (Candidate && Candidate->Viewport == ActiveVP)
+				continue;
+			}
+			if (TSharedPtr<SEditorViewport> Widget = Candidate->GetEditorViewportWidget())
+			{
+				if (Widget->GetTickSpaceGeometry().IsUnderLocation(ScreenPosition))
 				{
 					return Candidate;
 				}
 			}
 		}
-		for (FEditorViewportClient* Candidate : GEditor->GetAllViewportClients())
-		{
-			if (Candidate)
-			{
-				return Candidate;
-			}
-		}
 		return nullptr;
 	}
+
+	static bool IsSuspended()
+	{
+		const ULoops2DPanZoomSubsystem* Subsystem = GEditor ? GEditor->GetEditorSubsystem<ULoops2DPanZoomSubsystem>() : nullptr;
+		return Subsystem && Subsystem->IsSuspendedForPlayInEditor();
+	}
+
+	static bool IsViewportClientStillAlive(FEditorViewportClient* Client)
+	{
+		return Client && GEditor && GEditor->GetAllViewportClients().Contains(Client);
+	}
+
+	static bool IsModifierKeyDown(const FInputEvent& Event, const FKey& ModifierKey)
+	{
+		if (!ULoops2DPanZoomSettings::IsSupportedModifierKey(ModifierKey))
+		{
+			return false;
+		}
+		if (ModifierKey == EKeys::LeftAlt || ModifierKey == EKeys::RightAlt)
+		{
+			return Event.IsAltDown();
+		}
+		if (ModifierKey == EKeys::LeftControl || ModifierKey == EKeys::RightControl)
+		{
+			return Event.IsControlDown();
+		}
+		if (ModifierKey == EKeys::LeftShift || ModifierKey == EKeys::RightShift)
+		{
+			return Event.IsShiftDown();
+		}
+		return Event.IsCommandDown();
+	}
+}
+
+FLoops2DPanZoomInputProcessor::FLoops2DPanZoomInputProcessor(TSharedRef<FUICommandList> InCommandList)
+	: CommandList(InCommandList)
+{
 }
 
 void FLoops2DPanZoomInputProcessor::Tick(const float DeltaTime, FSlateApplication& SlateApp, TSharedRef<ICursor> Cursor)
 {
+	if (IsEngineExitRequested())
+	{
+		return;
+	}
+
 	if (GEditor)
 	{
 		if (ULoops2DPanZoomSubsystem* Subsystem = GEditor->GetEditorSubsystem<ULoops2DPanZoomSubsystem>())
 		{
 			Subsystem->TickAllAnimControlLocks();
+			Subsystem->TickAllFollowCameraCuts();
 		}
 	}
 }
 
 bool FLoops2DPanZoomInputProcessor::HandleKeyDownEvent(FSlateApplication& SlateApp, const FKeyEvent& InKeyEvent)
 {
-	const FKey Key = InKeyEvent.GetKey();
-
-	if (Key == EKeys::Decimal)
-	{
-		ULoops2DPanZoomSubsystem* Subsystem = GEditor ? GEditor->GetEditorSubsystem<ULoops2DPanZoomSubsystem>() : nullptr;
-		FEditorViewportClient* Client = Loops2DPanZoomInput::GetActiveEditorViewportClient();
-		if (!Subsystem || !Client)
-		{
-			return false;
-		}
-
-		Subsystem->ToggleAnimControlLock(Client);
-		return true;
-	}
-
-	if (Key == EKeys::Slash || Key == EKeys::Divide)
-	{
-		ULoops2DPanZoomSubsystem* Subsystem = GEditor ? GEditor->GetEditorSubsystem<ULoops2DPanZoomSubsystem>() : nullptr;
-		FEditorViewportClient* Client = Loops2DPanZoomInput::GetActiveEditorViewportClient();
-		if (!Subsystem || !Client)
-		{
-			return false;
-		}
-
-		if (InKeyEvent.IsShiftDown())
-		{
-			Subsystem->Reset(Client);
-		}
-		else
-		{
-			Subsystem->ToggleEnabled(Client);
-		}
-		return true;
-	}
-
-	const bool bIsZoomKey = Key == EKeys::Add || Key == EKeys::Subtract;
-	const bool bIsPanKey = Key == EKeys::NumPadFour || Key == EKeys::NumPadSix
-		|| Key == EKeys::NumPadEight || Key == EKeys::NumPadTwo;
-	const bool bIsZoomToggleKey = Key == EKeys::Multiply;
-	if (!bIsZoomKey && !bIsPanKey && !bIsZoomToggleKey)
+	if (Loops2DPanZoomInput::IsSuspended())
 	{
 		return false;
 	}
 
-	ULoops2DPanZoomSubsystem* Subsystem = GEditor ? GEditor->GetEditorSubsystem<ULoops2DPanZoomSubsystem>() : nullptr;
-	FEditorViewportClient* Client = Loops2DPanZoomInput::GetActiveEditorViewportClient();
-	if (!Subsystem || !Client || !Subsystem->IsEnabled(Client))
-	{
-		return false;
-	}
-
-	if (bIsZoomToggleKey)
-	{
-		Subsystem->ToggleZoomTo100Percent(Client);
-		return true;
-	}
-
-	if (bIsZoomKey)
-	{
-		constexpr float KeyZoomStep = 0.12f;
-		Subsystem->Zoom(Client, Key == EKeys::Add ? KeyZoomStep : -KeyZoomStep);
-		return true;
-	}
-
-	if (Client->Viewport)
-	{
-		constexpr float KeyPanStepPixels = 20.0f;
-		FVector2D ScreenDelta = FVector2D::ZeroVector;
-		if (Key == EKeys::NumPadFour)
-		{
-			ScreenDelta = FVector2D(KeyPanStepPixels, 0.0f);
-		}
-		else if (Key == EKeys::NumPadSix)
-		{
-			ScreenDelta = FVector2D(-KeyPanStepPixels, 0.0f);
-		}
-		else if (Key == EKeys::NumPadEight)
-		{
-			ScreenDelta = FVector2D(0.0f, KeyPanStepPixels);
-		}
-		else if (Key == EKeys::NumPadTwo)
-		{
-			ScreenDelta = FVector2D(0.0f, -KeyPanStepPixels);
-		}
-
-		Subsystem->Pan(Client, ScreenDelta, Client->Viewport->GetSizeXY());
-	}
-	return true;
+	return CommandList->ProcessCommandBindings(InKeyEvent);
 }
 
 bool FLoops2DPanZoomInputProcessor::HandleMouseButtonDownEvent(FSlateApplication& SlateApp, const FPointerEvent& MouseEvent)
 {
-	if (!MouseEvent.IsAltDown())
+	const ULoops2DPanZoomSettings* Settings = GetDefault<ULoops2DPanZoomSettings>();
+	if (!Settings || Loops2DPanZoomInput::IsSuspended() || !Loops2DPanZoomInput::IsModifierKeyDown(MouseEvent, Settings->DragModifierKey))
 	{
 		return false;
 	}
 
 	const FKey Button = MouseEvent.GetEffectingButton();
-	if (Button != EKeys::MiddleMouseButton && Button != EKeys::RightMouseButton)
+	const bool bIsPanButton = Button == Settings->PanMouseButton;
+	const bool bIsZoomButton = Button == Settings->ZoomMouseButton;
+	if (!bIsPanButton && !bIsZoomButton)
 	{
 		return false;
 	}
 
+	FEditorViewportClient* Client = Loops2DPanZoomInput::GetViewportClientUnderScreenPosition(MouseEvent.GetScreenSpacePosition());
 	ULoops2DPanZoomSubsystem* Subsystem = GEditor ? GEditor->GetEditorSubsystem<ULoops2DPanZoomSubsystem>() : nullptr;
-	FEditorViewportClient* Client = Loops2DPanZoomInput::GetActiveEditorViewportClient();
 	if (!Subsystem || !Client || !Subsystem->IsEnabled(Client))
 	{
 		return false;
@@ -161,8 +124,8 @@ bool FLoops2DPanZoomInputProcessor::HandleMouseButtonDownEvent(FSlateApplication
 
 	CapturedViewportClient = Client;
 	LastScreenPos = MouseEvent.GetScreenSpacePosition();
-	bIsPanning = (Button == EKeys::MiddleMouseButton);
-	bIsZooming = (Button == EKeys::RightMouseButton);
+	bIsPanning = bIsPanButton;
+	bIsZooming = bIsZoomButton && !bIsPanButton;
 	return true;
 }
 
@@ -173,9 +136,10 @@ bool FLoops2DPanZoomInputProcessor::HandleMouseButtonUpEvent(FSlateApplication& 
 		return false;
 	}
 
+	const ULoops2DPanZoomSettings* Settings = GetDefault<ULoops2DPanZoomSettings>();
 	const FKey Button = MouseEvent.GetEffectingButton();
-	const bool bStoppingPan = bIsPanning && Button == EKeys::MiddleMouseButton;
-	const bool bStoppingZoom = bIsZooming && Button == EKeys::RightMouseButton;
+	const bool bStoppingPan = bIsPanning && Settings && Button == Settings->PanMouseButton;
+	const bool bStoppingZoom = bIsZooming && Settings && Button == Settings->ZoomMouseButton;
 
 	if (bStoppingPan || bStoppingZoom)
 	{
@@ -190,8 +154,16 @@ bool FLoops2DPanZoomInputProcessor::HandleMouseButtonUpEvent(FSlateApplication& 
 
 bool FLoops2DPanZoomInputProcessor::HandleMouseMoveEvent(FSlateApplication& SlateApp, const FPointerEvent& MouseEvent)
 {
-	if ((!bIsPanning && !bIsZooming) || !CapturedViewportClient || !GEditor)
+	if (!bIsPanning && !bIsZooming)
 	{
+		return false;
+	}
+
+	if (Loops2DPanZoomInput::IsSuspended() || !Loops2DPanZoomInput::IsViewportClientStillAlive(CapturedViewportClient))
+	{
+		bIsPanning = false;
+		bIsZooming = false;
+		CapturedViewportClient = nullptr;
 		return false;
 	}
 
@@ -205,14 +177,18 @@ bool FLoops2DPanZoomInputProcessor::HandleMouseMoveEvent(FSlateApplication& Slat
 	const FVector2D Delta = CurrentScreenPos - LastScreenPos;
 	LastScreenPos = CurrentScreenPos;
 
+	const ULoops2DPanZoomSettings* Settings = GetDefault<ULoops2DPanZoomSettings>();
+	constexpr float BaseZoomSpeed = 0.01f;
+
 	if (bIsPanning && CapturedViewportClient->Viewport)
 	{
-		Subsystem->Pan(CapturedViewportClient, Delta, CapturedViewportClient->Viewport->GetSizeXY());
+		const float PanSensitivity = Settings ? Settings->MousePanSensitivity : 1.0f;
+		Subsystem->Pan(CapturedViewportClient, Delta * PanSensitivity, CapturedViewportClient->Viewport->GetSizeXY());
 	}
 	else if (bIsZooming)
 	{
-		const float ZoomSpeed = 0.01f;
-		Subsystem->Zoom(CapturedViewportClient, Delta.X * ZoomSpeed);
+		const float ZoomSensitivity = Settings ? Settings->MouseZoomSensitivity : 1.0f;
+		Subsystem->Zoom(CapturedViewportClient, Delta.X * BaseZoomSpeed * ZoomSensitivity);
 	}
 
 	return true;

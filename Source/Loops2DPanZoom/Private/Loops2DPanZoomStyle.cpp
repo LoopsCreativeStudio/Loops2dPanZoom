@@ -33,6 +33,10 @@ FName FLoops2DPanZoomStyle::GetStyleSetName()
 
 const ISlateStyle& FLoops2DPanZoomStyle::Get()
 {
+	if (!StyleInstance.IsValid())
+	{
+		Initialize();
+	}
 	return *StyleInstance;
 }
 

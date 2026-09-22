@@ -7,6 +7,7 @@
 
 class ISequencer;
 class FEditorViewportClient;
+class FUICommandList;
 struct FToolMenuContext;
 
 class FLoops2DPanZoomModule : public IModuleInterface
@@ -21,17 +22,15 @@ class FLoops2DPanZoomModule : public IModuleInterface
 		void OnToggleClicked(const FToolMenuContext& InContext);
 		ECheckBoxState GetToggleCheckState(const FToolMenuContext& InContext) const;
 		FText GetToggleTooltipText() const;
-		
-		// Event Sequencer
+
+		void BindCommands();
+
 		void OnSequencerCreated(TSharedRef<ISequencer> InSequencer);
 		void OnSequencerCameraCut(UObject* CameraObject, bool bJumpCut);
-		void OnSequencerGlobalTimeChanged();
-		void RefreshFollowCameraCutForAllViewports();
-		void ProcessPendingFollowCameraCutRefresh();
-		
-		bool bFollowCameraCutRefreshPending = false;
-		FDelegateHandle EndFrameDelegateHandle;
 
 		TSharedPtr<class FLoops2DPanZoomInputProcessor> InputProcessor;
+		TSharedPtr<FUICommandList> CommandList;
 		FDelegateHandle SequencerCreatedHandle;
+
+		TArray<TPair<TWeakPtr<ISequencer>, FDelegateHandle>> SequencerCameraCutHandles;
 };
