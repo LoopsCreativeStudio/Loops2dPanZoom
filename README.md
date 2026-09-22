@@ -12,17 +12,30 @@ view to inspect a detail.
    project files") and compile (Development Editor).
 3. Edit > Plugins > check that "Loops 2D Pan/Zoom" is enabled.
 
+## Shortcut preferences
+
+In **Editor Preferences > Keyboard Shortcuts > Loops 2D Pan/Zoom**, customize
+hotkeys for toggling and resetting pan and zoom.  Defaults to either `\` or `/`
+
+**Editor Preferences > Plugins > Loops 2D Pan/Zoom > Animation Mode Only** is
+on by default. Outside Animation Mode these shortcuts pass through to Unreal,
+including its backslash preview mesh and Shift+backslash cycle commands.
+
 ## Usage
 
-- **Toggle**: `/` key, or the 2D Pan/Zoom button in the viewport toolbar (the
+- **Toggle**: `\` key, or the 2D Pan/Zoom button in the viewport toolbar (the
   button acts on whichever viewport it's in, and focuses it so shortcuts work
   right away).
-- **Pan**: `Alt + Middle-click` drag, or Numpad `4`/`6`/`8`/`2`.
-- **Zoom**: `Alt + Right-click` drag (drag right = zoom in), or Numpad `+`/`-`.
+- **Pan**: hold `\` + middle mouse drag, or Numpad `4`/`6`/`8`/`2`.
+- **Zoom**: hold `\` + right mouse drag (drag right = zoom in), or Numpad `+`/`-`.
 - **Toggle zoom+pan to 100% / centered**: Numpad `*`. Pressing it again
   restores whatever zoom/pan you had before.
-- **Reset** (zero offset, 100% zoom): `Shift + /`.
+- **Reset** (zero offset, 100% zoom): `Shift + \`.
 - **Auto focus on selected control**: `Numpad .`	Lock & Follow the camera to the selected Control Rig control
+
+Holding `\` and dragging enables 2D Pan/Zoom automatically; tapping `\`
+(without using the mouse) toggles between the original and adjusted view.
+`Alt` + mouse is left to normal Unreal navigation.
 
 Works in any editor mode (Select, Landscape, Rig Editing, etc.), and state is
 stored per viewport, so one panel can be panned/zoomed while another stays

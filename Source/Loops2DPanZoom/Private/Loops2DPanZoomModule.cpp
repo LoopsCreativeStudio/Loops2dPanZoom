@@ -1,6 +1,7 @@
 // Copyright 2026 Loops Creative Studio. All Rights Reserved.
 
 #include "Loops2DPanZoomModule.h"
+#include "Loops2DPanZoomCommands.h"
 #include "Loops2DPanZoomInputProcessor.h"
 #include "Loops2DPanZoomSubsystem.h"
 #include "EditorViewportClient.h"
@@ -90,6 +91,7 @@ namespace Loops2DPanZoom
 void FLoops2DPanZoomModule::StartupModule()
 {
 	FLoops2DPanZoomStyle::Initialize();
+	FLoops2DPanZoomCommands::Register();
 
 	InputProcessor = MakeShared<FLoops2DPanZoomInputProcessor>();
 	FSlateApplication::Get().RegisterInputPreProcessor(InputProcessor);
@@ -108,6 +110,7 @@ void FLoops2DPanZoomModule::ShutdownModule()
 		FSlateApplication::Get().UnregisterInputPreProcessor(InputProcessor);
 	}
 	InputProcessor.Reset();
+	FLoops2DPanZoomCommands::Unregister();
 
 	FLoops2DPanZoomStyle::Shutdown();
 }
@@ -183,15 +186,18 @@ ECheckBoxState FLoops2DPanZoomModule::GetToggleCheckState(const FToolMenuContext
 
 FText FLoops2DPanZoomModule::GetToggleTooltipText() const
 {
-	static const FText BaseTooltip = LOCTEXT("Loops2DPanZoomToggleTooltip",
+	const FText BaseTooltip = FText::Format(LOCTEXT("Loops2DPanZoomToggleTooltip",
 		"Loops 2D Pan/Zoom\n"
-		"'/' to toggle\n"
-		"Shift+'/' to reset the view\n"
-		"Alt+MMB drag to pan the editor view\n"
-		"Alt+RMB drag to zoom the editor view\n"
+		"Tap {0} to toggle\n"
+		"{1} to reset the view\n"
+		"Hold {0} + MMB drag to pan (tilts the camera in place)\n"
+		"Hold {0} + RMB drag to zoom (adjusts FOV / ortho zoom)\n"
+		"Toggle/drag and reset shortcuts default to Animation Mode only\n"
 		"Numpad 4/6/8/2 to pan, Numpad +/- to zoom\n"
 		"Numpad * to toggle zoom+pan between their current values and 100%\n"
-		"Numpad . to lock the camera to the selected Control Rig control\n");
+		"Numpad . to lock the camera to the selected Control Rig control\n"),
+		FLoops2DPanZoomCommands::Get().ToggleAndDrag->GetInputText(),
+		FLoops2DPanZoomCommands::Get().Reset->GetInputText());
 
 	return BaseTooltip;
 }
