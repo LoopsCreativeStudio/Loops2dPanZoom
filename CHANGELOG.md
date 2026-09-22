@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.8.0](https://github.com/LoopsCreativeStudio/Loops2dPanZoom/compare/v1.7.1...v1.8.0) (2026-09-22)
+
+
+### Features
+
+* functional on versions 5.7 and 5.8 ([5e2a917](https://github.com/LoopsCreativeStudio/Loops2dPanZoom/commit/5e2a917b2a1e89feffa67d0e2307cbae0aa9d436))
+
 ## [1.7.1](https://github.com/LoopsCreativeStudio/Loops2dPanZoom/compare/v1.7.0...v1.7.1) (2026-09-22)
 
 
