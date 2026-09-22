@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.4.0](https://github.com/LoopsCreativeStudio/Loops2dPanZoom/compare/v1.3.1...v1.4.0) (2026-09-22)
+
+
+### Features
+
+* **unreal:** pan/zoom on cinematic cameras and settings ([c936b5c](https://github.com/LoopsCreativeStudio/Loops2dPanZoom/commit/c936b5c3bde684dba4d3d5b20992d571c8e288b3))
+
 ## [1.3.1](https://github.com/LoopsCreativeStudio/Loops2dPanZoom/compare/v1.3.0...v1.3.1) (2026-07-09)
 
 
