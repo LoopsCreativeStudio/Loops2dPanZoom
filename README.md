@@ -14,8 +14,10 @@ view to inspect a detail.
 
 ## Shortcut preferences
 
-In **Editor Preferences > Keyboard Shortcuts > Loops 2D Pan/Zoom**, customize
-hotkeys for toggling and resetting pan and zoom.  Defaults to either `\` or `/`
+In **Editor Preferences > Keyboard Shortcuts > Loops 2D Pan/Zoom**, customize hotkeys for toggling
+and resetting pan and zoom. Defaults to either `\` or `/`. Every other shortcut listed below,
+the numpad pan and zoom steps, the 100% toggle and the Control Rig lock is rebindable in the same
+place.
 
 **Editor Preferences > Plugins > Loops 2D Pan/Zoom > Animation Mode Only** is
 on by default. Outside Animation Mode these shortcuts pass through to Unreal,
