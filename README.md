@@ -45,9 +45,3 @@ Pan/zoom also **follows Sequencer's live camera cut**: if the shot changes or
 the camera moves while pan/zoom is enabled, the base view updates
 continuously and the offset stays layered on top, including while the
 viewport is locked to Camera Cuts.
-
-## Warning
-
-The viewport's "Allow Cinematic Control" option must be
-unchecked for 2D Pan/Zoom to actually drive the camera.
-

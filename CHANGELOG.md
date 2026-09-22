@@ -1,5 +1,21 @@
 # Changelog
 
+## [1.5.0](https://github.com/LoopsCreativeStudio/Loops2dPanZoom/compare/v1.4.0...v1.5.0) (2026-09-22)
+
+
+### Features
+
+* Allow 2d pan/zoom with cinematic (camera cut) controlled cameras ([c836f24](https://github.com/LoopsCreativeStudio/Loops2dPanZoom/commit/c836f249fc0560d436be7ced8b2e6cd5b9660cc6))
+
+## [1.4.0](https://github.com/LoopsCreativeStudio/Loops2dPanZoom/compare/v1.3.1...v1.4.0) (2026-09-22)
+
+
+### Features
+
+* Allow 2d pan/zoom with cinematic (camera cut) controlled cameras ([c836f24](https://github.com/LoopsCreativeStudio/Loops2dPanZoom/commit/c836f249fc0560d436be7ced8b2e6cd5b9660cc6))
+* Allow 2d pan/zoom with cinematic (camera cut) controlled cameras ([7cb5d0c](https://github.com/LoopsCreativeStudio/Loops2dPanZoom/commit/7cb5d0c6800cc67399e1b9b5241b821efc0e9fcc))
+* **unreal:** pan/zoom on cinematic cameras and settings ([c936b5c](https://github.com/LoopsCreativeStudio/Loops2dPanZoom/commit/c936b5c3bde684dba4d3d5b20992d571c8e288b3))
+
 ## [1.3.1](https://github.com/LoopsCreativeStudio/Loops2dPanZoom/compare/v1.3.0...v1.3.1) (2026-07-09)
 
 

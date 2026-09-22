@@ -10,14 +10,11 @@
 #include "ToolMenus.h"
 #include "Loops2DPanZoomStyle.h"
 #include "Framework/Application/SlateApplication.h"
-#include "ISequencerModule.h"
-#include "ISequencer.h"
 #include "Modules/ModuleManager.h"
 #include "ToolMenuContext.h"
 #include "ToolMenuDelegates.h"
 #include "ViewportToolbar/UnrealEdViewportToolbarContext.h"
 #include "SEditorViewport.h"
-#include "Misc/CoreDelegates.h"
 
 #define LOCTEXT_NAMESPACE "FLoops2DPanZoomModule"
 
@@ -102,22 +99,10 @@ void FLoops2DPanZoomModule::StartupModule()
 	UToolMenus::RegisterStartupCallback(FSimpleMulticastDelegate::FDelegate::CreateRaw(
 		this, &FLoops2DPanZoomModule::RegisterToolbarExtension));
 
-	ISequencerModule& SequencerModule = FModuleManager::LoadModuleChecked<ISequencerModule>("Sequencer");
-	SequencerCreatedHandle = SequencerModule.RegisterOnSequencerCreated(
-		FOnSequencerCreated::FDelegate::CreateRaw(this, &FLoops2DPanZoomModule::OnSequencerCreated));
-
-	EndFrameDelegateHandle = FCoreDelegates::OnEndFrame.AddRaw(this, &FLoops2DPanZoomModule::ProcessPendingFollowCameraCutRefresh);
 }
 
 void FLoops2DPanZoomModule::ShutdownModule()
 {
-	FCoreDelegates::OnEndFrame.Remove(EndFrameDelegateHandle);
-
-	if (FModuleManager::Get().IsModuleLoaded("Sequencer"))
-	{
-		FModuleManager::GetModuleChecked<ISequencerModule>("Sequencer").UnregisterOnSequencerCreated(SequencerCreatedHandle);
-	}
-
 	UnregisterToolbarExtension();
 
 	if (FSlateApplication::IsInitialized() && InputProcessor.IsValid())
@@ -128,58 +113,6 @@ void FLoops2DPanZoomModule::ShutdownModule()
 	FLoops2DPanZoomCommands::Unregister();
 
 	FLoops2DPanZoomStyle::Shutdown();
-}
-
-void FLoops2DPanZoomModule::OnSequencerCreated(TSharedRef<ISequencer> InSequencer)
-{
-	InSequencer->OnCameraCut().AddRaw(this, &FLoops2DPanZoomModule::OnSequencerCameraCut);
-	InSequencer->OnGlobalTimeChanged().AddRaw(this, &FLoops2DPanZoomModule::OnSequencerGlobalTimeChanged);
-}
-
-void FLoops2DPanZoomModule::OnSequencerCameraCut(UObject* CameraObject, bool bJumpCut)
-{
-	if (GEditor)
-	{
-		if (ULoops2DPanZoomSubsystem* Subsystem = GEditor->GetEditorSubsystem<ULoops2DPanZoomSubsystem>())
-		{
-			Subsystem->NotifyCameraCut(CameraObject);
-		}
-	}
-	bFollowCameraCutRefreshPending = true;
-}
-
-void FLoops2DPanZoomModule::OnSequencerGlobalTimeChanged()
-{
-	bFollowCameraCutRefreshPending = true;
-}
-
-void FLoops2DPanZoomModule::ProcessPendingFollowCameraCutRefresh()
-{
-	if (!bFollowCameraCutRefreshPending)
-	{
-		return;
-	}
-	bFollowCameraCutRefreshPending = false;
-	RefreshFollowCameraCutForAllViewports();
-}
-
-void FLoops2DPanZoomModule::RefreshFollowCameraCutForAllViewports()
-{
-	if (!GEditor)
-	{
-		return;
-	}
-
-	if (ULoops2DPanZoomSubsystem* Subsystem = GEditor->GetEditorSubsystem<ULoops2DPanZoomSubsystem>())
-	{
-		for (FEditorViewportClient* Candidate : GEditor->GetAllViewportClients())
-		{
-			if (Candidate)
-			{
-				Subsystem->TickFollowCameraCut(Candidate);
-			}
-		}
-	}
 }
 
 void FLoops2DPanZoomModule::RegisterToolbarExtension()
@@ -265,24 +198,6 @@ FText FLoops2DPanZoomModule::GetToggleTooltipText() const
 		"Numpad . to lock the camera to the selected Control Rig control\n"),
 		FLoops2DPanZoomCommands::Get().ToggleAndDrag->GetInputText(),
 		FLoops2DPanZoomCommands::Get().Reset->GetInputText());
-
-	if (FEditorViewportClient* Client = Loops2DPanZoom::GetActiveEditorViewportClient())
-	{
-		if (Client->AllowsCinematicControl() && Client->IsLevelEditorClient())
-		{
-			const FLevelEditorViewportClient* LevelViewportClient = static_cast<FLevelEditorViewportClient*>(Client);
-			if (LevelViewportClient->IsLockedToCinematic())
-			{
-				return FText::Format(
-					LOCTEXT("Loops2DPanZoomToggleTooltipWithWarning", "{0}\n{1}"),
-					BaseTooltip,
-					LOCTEXT("Loops2DPanZoomCinematicWarning", "WARNING: Pan/Zoom blocked by camera cut - disable Allow Cinematic Control")
-				);
-			}
-		}
-	}
-
-	//TODO : Add check Camera Pilot
 
 	return BaseTooltip;
 }
