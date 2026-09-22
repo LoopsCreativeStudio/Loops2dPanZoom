@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.6.0](https://github.com/LoopsCreativeStudio/Loops2dPanZoom/compare/v1.5.0...v1.6.0) (2026-09-22)
+
+
+### Features
+
+* Emulate maya's held key pan/zoom UX ([c76fb5e](https://github.com/LoopsCreativeStudio/Loops2dPanZoom/commit/c76fb5e6e98c19bdb2727d04191f726a9f6f649f))
+
 ## [1.5.0](https://github.com/LoopsCreativeStudio/Loops2dPanZoom/compare/v1.4.0...v1.5.0) (2026-09-22)
 
 
