@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.7.1](https://github.com/LoopsCreativeStudio/Loops2dPanZoom/compare/v1.7.0...v1.7.1) (2026-09-22)
+
+
+### Bug Fixes
+
+* unblock build broken by leftover duplicate sources ([48ecce6](https://github.com/LoopsCreativeStudio/Loops2dPanZoom/commit/48ecce6dee3d6238dd2ab058c7a623c1f05401ec))
+
 ## [1.7.0](https://github.com/LoopsCreativeStudio/Loops2dPanZoom/compare/v1.6.0...v1.7.0) (2026-09-22)
 
 
