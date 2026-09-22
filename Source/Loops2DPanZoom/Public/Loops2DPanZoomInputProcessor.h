@@ -5,13 +5,10 @@
 #include "Framework/Application/IInputProcessor.h"
 
 class FEditorViewportClient;
-class FUICommandList;
 
 class FLoops2DPanZoomInputProcessor : public IInputProcessor
 {
 	public:
-		explicit FLoops2DPanZoomInputProcessor(TSharedRef<FUICommandList> InCommandList);
-
 		virtual void Tick(const float DeltaTime, FSlateApplication& SlateApp, TSharedRef<ICursor> Cursor) override;
 		virtual bool HandleKeyDownEvent(FSlateApplication& SlateApp, const FKeyEvent& InKeyEvent) override;
 		virtual bool HandleMouseButtonDownEvent(FSlateApplication& SlateApp, const FPointerEvent& MouseEvent) override;
@@ -20,8 +17,6 @@ class FLoops2DPanZoomInputProcessor : public IInputProcessor
 		virtual const TCHAR* GetDebugName() const override { return TEXT("Loops2DPanZoom"); }
 
 	private:
-		TSharedRef<FUICommandList> CommandList;
-
 		bool bIsPanning = false;
 		bool bIsZooming = false;
 		FEditorViewportClient* CapturedViewportClient = nullptr;

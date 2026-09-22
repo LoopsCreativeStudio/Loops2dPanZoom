@@ -13,8 +13,7 @@ public class Loops2DPanZoom : ModuleRules
 			"Core",
 			"CoreUObject",
 			"Engine",
-			"InputCore",
-			"DeveloperSettings"
+			"InputCore"
 		});
 
 		PrivateDependencyModuleNames.AddRange(new string[]

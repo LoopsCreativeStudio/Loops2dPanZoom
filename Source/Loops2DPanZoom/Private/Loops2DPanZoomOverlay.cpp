@@ -8,10 +8,9 @@
 #include "Rendering/DrawElements.h"
 #include "Styling/CoreStyle.h"
 
-#define LOCTEXT_NAMESPACE "Loops2DPanZoomOverlay"
-
 namespace Loops2DPanZoomOverlayLayout
 {
+	//Default Layout
 	constexpr float FrameWidth = 140.0f;
 	constexpr float FrameHeight = 80.0f;
 	constexpr float Margin = 12.0f;
@@ -21,8 +20,6 @@ namespace Loops2DPanZoomOverlayLayout
 void SLoops2DPanZoomOverlay::Construct(const FArguments& InArgs, FEditorViewportClient* InViewportClient)
 {
 	ViewportClient = InViewportClient;
-
-	SetVisibility(EVisibility::HitTestInvisible);
 }
 
 FVector2D SLoops2DPanZoomOverlay::ComputeDesiredSize(float) const
@@ -44,7 +41,8 @@ int32 SLoops2DPanZoomOverlay::OnPaint(const FPaintArgs& Args, const FGeometry& A
 	FVector2D CropSize = FVector2D(1.0f, 1.0f);
 	FVector2D CropCenterOffset = FVector2D::ZeroVector;
 	bool bIsAnimControlLockActive = false;
-	if (!Subsystem || !Subsystem->GetOverlayInfo(ViewportClient, ZoomPercent, CropSize, CropCenterOffset, bIsAnimControlLockActive))
+	FString AnimControlLockControlName;
+	if (!Subsystem || !Subsystem->GetOverlayInfo(ViewportClient, ZoomPercent, CropSize, CropCenterOffset, bIsAnimControlLockActive, AnimControlLockControlName))
 	{
 		return LayerId;
 	}
@@ -56,68 +54,88 @@ int32 SLoops2DPanZoomOverlay::OnPaint(const FPaintArgs& Args, const FGeometry& A
 	FSlateDrawElement::MakeBox(
 		OutDrawElements,
 		LayerId,
-		AllottedGeometry.ToPaintGeometry(FVector2D(Loops2DPanZoomOverlayLayout::FrameWidth,
+		AllottedGeometry.ToPaintGeometry(FVector2D(Loops2DPanZoomOverlayLayout::FrameWidth, 
 			Loops2DPanZoomOverlayLayout::FrameHeight), FSlateLayoutTransform(FVector2D(FrameLeft, FrameTop))),
 		FCoreStyle::Get().GetBrush("WhiteBrush"),
 		ESlateDrawEffect::None,
 		FLinearColor(0.0f, 0.0f, 0.0f, 0.35f)
 	);
 
+	bool bShowCinematicWarning = false;
+	bool bShowPilotWarning = false;
+	if (ViewportClient->IsLevelEditorClient())
 	{
-		const TArray<FVector2D> OuterBorderPoints = {
-			FVector2D(FrameLeft, FrameTop),
-			FVector2D(FrameLeft + Loops2DPanZoomOverlayLayout::FrameWidth, FrameTop),
-			FVector2D(FrameLeft + Loops2DPanZoomOverlayLayout::FrameWidth, FrameTop + Loops2DPanZoomOverlayLayout::FrameHeight),
-			FVector2D(FrameLeft, FrameTop + Loops2DPanZoomOverlayLayout::FrameHeight),
-			FVector2D(FrameLeft, FrameTop)
-		};
+		FLevelEditorViewportClient* LevelViewportClient = static_cast<FLevelEditorViewportClient*>(ViewportClient);
+		if (ViewportClient->AllowsCinematicControl())
+		{
+			bShowCinematicWarning = LevelViewportClient->IsLockedToCinematic();
+		}
+		bShowPilotWarning = LevelViewportClient->IsAnyActorLocked();
+	}
+
+	if (bShowCinematicWarning || bShowPilotWarning)
+	{
+		TArray<FString> WarningLines;
+		if (bShowCinematicWarning)
+		{
+			WarningLines.Add(TEXT("Pan/Zoom blocked by camera cut"));
+			WarningLines.Add(TEXT("Disable Allow Cinematic Control"));
+		}
+		if (bShowPilotWarning)
+		{
+			WarningLines.Add(TEXT("Pan/Zoom blocked by camera pilot"));
+			WarningLines.Add(TEXT("Stop piloting camera"));
+		}
+
+		const FVector2D WarningLineSize(Loops2DPanZoomOverlayLayout::FrameWidth, Loops2DPanZoomOverlayLayout::TextHeight);
+		const float WarningTop = FrameTop;
+		const FLinearColor WarningColor(1.0f, 0.65f, 0.0f, 1.0f);
+
+		for (int32 LineIndex = 0; LineIndex < WarningLines.Num(); ++LineIndex)
+		{
+			FSlateDrawElement::MakeText(
+				OutDrawElements,
+				LayerId + 1,
+				AllottedGeometry.ToPaintGeometry(WarningLineSize, FSlateLayoutTransform(FVector2D(FrameLeft, WarningTop + Loops2DPanZoomOverlayLayout::TextHeight * LineIndex))),
+				WarningLines[LineIndex],
+				FCoreStyle::GetDefaultFontStyle("Bold", 8),
+				ESlateDrawEffect::None,
+				WarningColor
+			);
+		}
+	}
+	else
+	{
+		const FVector2D InnerSize(Loops2DPanZoomOverlayLayout::FrameWidth * CropSize.X, Loops2DPanZoomOverlayLayout::FrameHeight * CropSize.Y);
+		const FVector2D InnerCenter(
+			FrameLeft + Loops2DPanZoomOverlayLayout::FrameWidth * (0.5f + CropCenterOffset.X),
+			FrameTop + Loops2DPanZoomOverlayLayout::FrameHeight * (0.5f + CropCenterOffset.Y)
+		);
+		const FVector2D InnerTopLeft = InnerCenter - InnerSize * 0.5f;
+
+		TArray<FVector2D> Points;
+		Points.Add(InnerTopLeft);
+		Points.Add(InnerTopLeft + FVector2D(InnerSize.X, 0.0f));
+		Points.Add(InnerTopLeft + InnerSize);
+		Points.Add(InnerTopLeft + FVector2D(0.0f, InnerSize.Y));
+		Points.Add(InnerTopLeft);
+
+		const FLinearColor FrameColor = bIsAnimControlLockActive
+			? FLinearColor(1.0f, 0.85f, 0.0f, 1.0f)
+			: FLinearColor(33.0f / 255.0f, 166.0f / 255.0f, 227.0f / 255.0f, 1.0f);
 
 		FSlateDrawElement::MakeLines(
 			OutDrawElements,
-			LayerId,
+			LayerId + 1,
 			AllottedGeometry.ToPaintGeometry(),
-			OuterBorderPoints,
+			Points,
 			ESlateDrawEffect::None,
-			FLinearColor(1.0f, 1.0f, 1.0f, 0.7f),
+			FrameColor,
 			true,
-			1.5f
+			2.0f
 		);
 	}
-
-	const FVector2D InnerSize(Loops2DPanZoomOverlayLayout::FrameWidth * CropSize.X, Loops2DPanZoomOverlayLayout::FrameHeight * CropSize.Y);
-	const FVector2D InnerCenter(
-		FrameLeft + Loops2DPanZoomOverlayLayout::FrameWidth * (0.5f + CropCenterOffset.X),
-		FrameTop + Loops2DPanZoomOverlayLayout::FrameHeight * (0.5f + CropCenterOffset.Y)
-	);
-	const FVector2D InnerTopLeft = InnerCenter - InnerSize * 0.5f;
-
-	TArray<FVector2D> Points;
-	Points.Add(InnerTopLeft);
-	Points.Add(InnerTopLeft + FVector2D(InnerSize.X, 0.0f));
-	Points.Add(InnerTopLeft + InnerSize);
-	Points.Add(InnerTopLeft + FVector2D(0.0f, InnerSize.Y));
-	Points.Add(InnerTopLeft);
-
-	const FLinearColor FrameColor = bIsAnimControlLockActive
-		? FLinearColor(1.0f, 0.85f, 0.0f, 1.0f)
-		: FLinearColor(33.0f / 255.0f, 166.0f / 255.0f, 227.0f / 255.0f, 1.0f);
-
-	FSlateDrawElement::MakeLines(
-		OutDrawElements,
-		LayerId + 1,
-		AllottedGeometry.ToPaintGeometry(),
-		Points,
-		ESlateDrawEffect::None,
-		FrameColor,
-		true,
-		2.0f
-	);
-
-	FNumberFormattingOptions ZoomNumberFormat;
-	ZoomNumberFormat.SetMaximumFractionalDigits(0);
-	const FString ZoomText = FText::Format(
-		LOCTEXT("OverlayZoomLabel", "Loops2DPanZoom: {0}%"),
-		FText::AsNumber(ZoomPercent, &ZoomNumberFormat)).ToString();
+	const FString ZoomText = FString::Printf(TEXT("Loops2DPanZoom: %.0f%%"), ZoomPercent);
 	FSlateDrawElement::MakeText(
 		OutDrawElements,
 		LayerId + 2,
@@ -130,7 +148,7 @@ int32 SLoops2DPanZoomOverlay::OnPaint(const FPaintArgs& Args, const FGeometry& A
 
 	if (bIsAnimControlLockActive)
 	{
-		const FString LockText = LOCTEXT("OverlayAutoFocus", "Auto Focus on Control").ToString();
+		static const FString LockText = TEXT("Auto Focus on Control");
 
 		FSlateDrawElement::MakeText(
 			OutDrawElements,
@@ -145,5 +163,3 @@ int32 SLoops2DPanZoomOverlay::OnPaint(const FPaintArgs& Args, const FGeometry& A
 
 	return LayerId + 3;
 }
-
-#undef LOCTEXT_NAMESPACE
