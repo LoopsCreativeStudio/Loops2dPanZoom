@@ -18,6 +18,7 @@ public class Loops2DPanZoom : ModuleRules
 
 		PrivateDependencyModuleNames.AddRange(new string[]
 		{
+			"RenderCore",
 			"Slate",
 			"SlateCore",
 			"UnrealEd",
@@ -25,7 +26,6 @@ public class Loops2DPanZoom : ModuleRules
 			"LevelEditor",
 			"ToolMenus",
 			"Projects",
-			"Sequencer",
 			"ControlRig",
 			"ControlRigEditor"
 		});

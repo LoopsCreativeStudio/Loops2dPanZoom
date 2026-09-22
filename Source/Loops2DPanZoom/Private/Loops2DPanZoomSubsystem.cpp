@@ -7,7 +7,7 @@
 #include "IAssetViewport.h"
 #include "SLevelViewport.h"
 #include "Editor.h"
-#include "Camera/CameraComponent.h"
+#include "SceneView.h"
 #include "GameFramework/Actor.h"
 #include "Components/SceneComponent.h"
 #include "EditorModeManager.h"
@@ -16,47 +16,41 @@
 #include "IControlRigObjectBinding.h"
 #include "EditMode/ControlRigEditMode.h"
 
+/*
+ * Perspective pan/zoom is applied through FEditorViewportClient::ViewModifiers
+ * when Unreal builds each FSceneView. Previously we wrote the viewport's FOV,
+ * rotation and location directly, which competed with Sequencer updating those
+ * same properties while Allow Cinematic Control was enabled.
+ *
+ * ModifyView adjusts the evaluated view parameters, leaving the perspective
+ * viewport camera properties and camera actor/lens settings under Unreal's
+ * control. CalcSceneView is also used for picking and gizmos, so those views
+ * receive the same adjustment as rendering; a render-only effect would not.
+ *
+ * Each calculation starts from that viewport's current camera. Camera movement
+ * and cuts therefore no longer need a global last-camera object, Sequencer event
+ * subscriptions or a separate follow-camera refresh pass. Removing that manual
+ * synchronization and perspective transform restoration accounts for most of
+ * the deleted code. The modifier still needs explicit removal on disable and
+ * viewport cleanup, and the cached controlling-view FOV needs a neutral refresh.
+ *
+ * Orthographic views retain their transform-based implementation. DOF is still
+ * temporarily disabled and restored. Perspective pan remains rotational, not
+ * an off-axis crop; other view modifiers (including camera blends) can conflict
+ * through callback ordering.
+ */
 namespace Loops2DPanZoomLimits
 {
-	// Default Unreal value FOV in viewport, if is possible to change that ?
-	constexpr float MinFOV = 5.0f;
-	constexpr float MaxFOV = 170.0f;
-	constexpr float DollyDistancePerZoomDoubling = 400.0f;
 	constexpr float MinZoom = 0.05f;
 	constexpr float MaxZoom = 20000.0f;
 }
 
-namespace Loops2DPanZoomSequencer
-{
-	static UCameraComponent* GetDrivingCameraComponent(FEditorViewportClient* ViewportClient)
-	{
-		if (!ViewportClient || !ViewportClient->IsLevelEditorClient())
-		{
-			return nullptr;
-		}
-		return static_cast<FLevelEditorViewportClient*>(ViewportClient)->GetCameraComponentForView();
-	}
-
-	static UCameraComponent* ResolveCameraComponent(UObject* CameraObject)
-	{
-		if (!CameraObject)
-		{
-			return nullptr;
-		}
-		if (UCameraComponent* AsComponent = Cast<UCameraComponent>(CameraObject))
-		{
-			return AsComponent;
-		}
-		if (AActor* AsActor = Cast<AActor>(CameraObject))
-		{
-			return AsActor->FindComponentByClass<UCameraComponent>();
-		}
-		return nullptr;
-	}
-}
-
 FLoops2DPanZoomState& ULoops2DPanZoomSubsystem::GetState(FEditorViewportClient* ViewportClient)
 {
+	if (GEditor && !ViewportListChangedHandle.IsValid())
+	{
+		ViewportListChangedHandle = GEditor->OnViewportClientListChanged().AddUObject(this, &ULoops2DPanZoomSubsystem::RemoveClosedViewports);
+	}
 	return ViewportStates.FindOrAdd(ViewportClient);
 }
 
@@ -78,30 +72,49 @@ void ULoops2DPanZoomSubsystem::CaptureBaseIfNeeded(FEditorViewportClient* Viewpo
 		return;
 	}
 
-	UCameraComponent* DrivingCamera = Loops2DPanZoomSequencer::ResolveCameraComponent(LastCameraCutObject.Get());
-	if (!DrivingCamera)
-	{
-		DrivingCamera = Loops2DPanZoomSequencer::GetDrivingCameraComponent(ViewportClient);
-	}
-
-	if (DrivingCamera)
-	{
-		FMinimalViewInfo ViewInfo;
-		DrivingCamera->GetCameraView(0.0f, ViewInfo);
-		State.BaseLocation = ViewInfo.Location;
-		State.BaseRotation = ViewInfo.Rotation;
-		State.BaseFOV = ViewInfo.FOV;
-	}
-	else
-	{
-		State.BaseLocation = ViewportClient->GetViewLocation();
-		State.BaseRotation = ViewportClient->GetViewRotation();
-		State.BaseFOV = ViewportClient->ViewFOV;
-	}
-
+	State.BaseLocation = ViewportClient->GetViewLocation();
+	State.BaseRotation = ViewportClient->GetViewRotation();
+	State.BaseFOV = ViewportClient->ViewFOV;
 	State.BaseOrthoZoom = ViewportClient->GetOrthoZoom();
-	State.bWasDepthOfFieldEnabled = ViewportClient->EngineShowFlags.DepthOfField;
 	State.bHasBase = true;
+}
+
+void ULoops2DPanZoomSubsystem::ModifyView(FEditorViewportViewModifierParams& Params)
+{
+	FEditorViewportClient* ViewportClient = Params.ViewportClient;
+	FLoops2DPanZoomState* State = ViewportStates.Find(ViewportClient);
+	if (!State || !ViewportClient || !ViewportClient->IsPerspective())
+	{
+		return;
+	}
+
+	// CalcSceneView caches the modified FOV in ControllingActorViewInfo. Start
+	// from ViewFOV on EVERY call so picking/repeated draws cannot compound zoom.
+	// This property is maintained by the editor/Sequencer and is never written here.
+	Params.ViewInfo.FOV = ViewportClient->ViewFOV;
+	State->BaseLocation = Params.ViewInfo.Location;
+	State->BaseRotation = Params.ViewInfo.Rotation;
+	State->BaseFOV = Params.ViewInfo.FOV;
+	if (!State->bEnabled && !State->bAnimControlLockEnabled)
+	{
+		return;
+	}
+
+	if (State->bAnimControlLockEnabled)
+	{
+		FTransform ControlTransform;
+		if (GetSelectedControlWorldTransform(ControlTransform))
+		{
+			UpdateAnimControlLockPan(ViewportClient, *State, ControlTransform.GetLocation());
+		}
+	}
+
+	const float HalfFOV = FMath::DegreesToRadians(FMath::Clamp(State->BaseFOV, 0.001f, 179.0f) * 0.5f);
+	Params.ViewInfo.FOV = FMath::RadiansToDegrees(2.0f * FMath::Atan(FMath::Tan(HalfFOV) / FMath::Max(State->Zoom, 0.01f)));
+	FRotator NewRotation = State->BaseRotation;
+	NewRotation.Yaw = FRotator::NormalizeAxis(NewRotation.Yaw + State->PanOffset.X);
+	NewRotation.Pitch = FMath::Clamp(NewRotation.Pitch + State->PanOffset.Y, -89.9f, 89.9f);
+	Params.ViewInfo.Rotation = NewRotation;
 }
 
 void ULoops2DPanZoomSubsystem::ApplyToCamera(FEditorViewportClient* ViewportClient, FLoops2DPanZoomState& State)
@@ -111,30 +124,9 @@ void ULoops2DPanZoomSubsystem::ApplyToCamera(FEditorViewportClient* ViewportClie
 		return;
 	}
 
-	const float SafeZoom = FMath::Max(State.Zoom, 0.01f);
-
-	if (ViewportClient->IsPerspective())
+	if (!ViewportClient->IsPerspective())
 	{
-		FRotator NewRotation = State.BaseRotation;
-		NewRotation.Yaw = FRotator::NormalizeAxis(NewRotation.Yaw + State.PanOffset.X);
-		NewRotation.Pitch = FMath::Clamp(NewRotation.Pitch + State.PanOffset.Y, -89.9f, 89.9f);
-		ViewportClient->ViewFOV = FMath::Clamp(State.BaseFOV / SafeZoom, Loops2DPanZoomLimits::MinFOV, Loops2DPanZoomLimits::MaxFOV);
-
-		FVector NewLocation = State.BaseLocation;
-		const float FOVLimitedZoom = State.BaseFOV / Loops2DPanZoomLimits::MinFOV;
-		if (SafeZoom > FOVLimitedZoom)
-		{
-			const float ExcessZoomRatio = SafeZoom / FOVLimitedZoom;
-			const FVector Forward = NewRotation.Vector();
-
-			NewLocation += Forward * (Loops2DPanZoomLimits::DollyDistancePerZoomDoubling * FMath::Log2(ExcessZoomRatio));
-		}
-
-		ViewportClient->SetViewRotation(NewRotation);
-		ViewportClient->SetViewLocation(NewLocation);
-	}
-	else
-	{
+		const float SafeZoom = FMath::Max(State.Zoom, 0.01f);
 		const FRotationMatrix RotMatrix(State.BaseRotation);
 		const FVector Right = RotMatrix.GetScaledAxis(EAxis::Y);
 		const FVector Up = RotMatrix.GetScaledAxis(EAxis::Z);
@@ -146,50 +138,52 @@ void ULoops2DPanZoomSubsystem::ApplyToCamera(FEditorViewportClient* ViewportClie
 	ViewportClient->Invalidate();
 }
 
-// void ULoops2DPanZoomSubsystem::ApplyToCamera(FEditorViewportClient* ViewportClient, FLoops2DPanZoomState& State)
-// {
-// 	if (!ViewportClient || !State.bHasBase)
-// 	{
-// 		return;
-// 	}
-
-// 	const float SafeZoom = FMath::Max(State.Zoom, 0.01f);
-
-// 	if (ViewportClient->IsPerspective())
-// 	{
-// 		FRotator NewRotation = State.BaseRotation;
-// 		NewRotation.Yaw = FRotator::NormalizeAxis(NewRotation.Yaw + State.PanOffset.X);
-// 		NewRotation.Pitch = FMath::Clamp(NewRotation.Pitch + State.PanOffset.Y, -89.9f, 89.9f);
-// 		ViewportClient->ViewFOV = FMath::Clamp(State.BaseFOV / SafeZoom, Loops2DPanZoomLimits::MinFOV, Loops2DPanZoomLimits::MaxFOV);
-// 		ViewportClient->SetViewRotation(NewRotation);
-// 	}
-// 	else
-// 	{
-// 		const FRotationMatrix RotMatrix(State.BaseRotation);
-// 		const FVector Right = RotMatrix.GetScaledAxis(EAxis::Y);
-// 		const FVector Up = RotMatrix.GetScaledAxis(EAxis::Z);
-// 		const FVector NewLocation = State.BaseLocation + Right * State.PanOffset.X + Up * State.PanOffset.Y;
-// 		ViewportClient->SetViewLocation(NewLocation);
-// 		ViewportClient->SetOrthoZoom(State.BaseOrthoZoom / SafeZoom);
-// 	}
-// 	ViewportClient->EngineShowFlags.SetDepthOfField(false);
-// 	ViewportClient->Invalidate();
-// }
-
 void ULoops2DPanZoomSubsystem::RestoreCamera(FEditorViewportClient* ViewportClient, FLoops2DPanZoomState& State)
 {
-	if (!ViewportClient || !State.bHasBase)
+	if (!ViewportClient || !State.bHasBase || !State.ViewModifierHandle.IsValid())
 	{
 		return;
 	}
 
 	ViewportClient->EngineShowFlags.SetDepthOfField(State.bWasDepthOfFieldEnabled);
 
-	ViewportClient->SetViewRotation(State.BaseRotation);
-	ViewportClient->SetViewLocation(State.BaseLocation);
-	ViewportClient->ViewFOV = State.BaseFOV;
-	ViewportClient->SetOrthoZoom(State.BaseOrthoZoom);
+	if (!ViewportClient->IsPerspective())
+	{
+		ViewportClient->SetViewLocation(State.BaseLocation);
+		ViewportClient->SetOrthoZoom(State.BaseOrthoZoom);
+	}
+	else if (ViewportClient->Viewport)
+	{
+		// Flush the controlling actor's cached FOV with a neutral modifier before
+		// detaching it, including when playback/realtime is paused.
+		FSceneViewFamilyContext ViewFamily(FSceneViewFamily::ConstructionValues(
+			ViewportClient->Viewport, ViewportClient->GetScene(), ViewportClient->EngineShowFlags));
+		ViewportClient->CalcSceneView(&ViewFamily);
+	}
+	ViewportClient->ViewModifiers.Remove(State.ViewModifierHandle);
+	State.ViewModifierHandle.Reset();
 	ViewportClient->Invalidate();
+}
+
+void ULoops2DPanZoomSubsystem::Deinitialize()
+{
+	if (GEditor)
+	{
+		GEditor->OnViewportClientListChanged().Remove(ViewportListChangedHandle);
+		ViewportListChangedHandle.Reset();
+		for (TPair<FEditorViewportClient*, FLoops2DPanZoomState>& Pair : ViewportStates)
+		{
+			if (GEditor->GetAllViewportClients().Contains(Pair.Key))
+			{
+				Pair.Value.bEnabled = false;
+				Pair.Value.bAnimControlLockEnabled = false;
+				RestoreCamera(Pair.Key, Pair.Value);
+				RemoveOverlayIfNeeded(Pair.Key, Pair.Value);
+			}
+		}
+	}
+	ViewportStates.Empty();
+	Super::Deinitialize();
 }
 
 void ULoops2DPanZoomSubsystem::SetEnabled(FEditorViewportClient* ViewportClient, bool bEnabled)
@@ -208,8 +202,11 @@ void ULoops2DPanZoomSubsystem::SetEnabled(FEditorViewportClient* ViewportClient,
 	State.bEnabled = bEnabled;
 	if (bEnabled)
 	{
-		//I don't force the "Allow Cinematic Control" setting to be disabled because it's too unstable.
 		CaptureBaseIfNeeded(ViewportClient, State);
+		// Save DOF on each off-to-on transition even if a base already exists.
+		// ApplyToCamera disables it; RestoreCamera restores this saved setting.
+		State.bWasDepthOfFieldEnabled = ViewportClient->EngineShowFlags.DepthOfField;
+		State.ViewModifierHandle = ViewportClient->ViewModifiers.AddUObject(this, &ULoops2DPanZoomSubsystem::ModifyView);
 
 		RefreshOverlayPresence(ViewportClient, State);
 		ApplyToCamera(ViewportClient, State);
@@ -304,47 +301,6 @@ void ULoops2DPanZoomSubsystem::ToggleEnabled(FEditorViewportClient* ViewportClie
 	SetEnabled(ViewportClient, !IsEnabled(ViewportClient));
 }
 
-void ULoops2DPanZoomSubsystem::NotifyCameraCut(UObject* CameraObject)
-{
-	LastCameraCutObject = CameraObject;
-}
-
-void ULoops2DPanZoomSubsystem::TickFollowCameraCut(FEditorViewportClient* ViewportClient)
-{
-	const FLoops2DPanZoomState* ConstState = FindState(ViewportClient);
-	if (!ConstState || !ConstState->bEnabled || !ViewportClient)
-	{
-		return;
-	}
-
-	if (ConstState->bAnimControlLockEnabled)
-	{
-		return;
-	}
-
-	UCameraComponent* DrivingCamera = Loops2DPanZoomSequencer::ResolveCameraComponent(LastCameraCutObject.Get());
-	if (!DrivingCamera)
-	{
-		DrivingCamera = Loops2DPanZoomSequencer::GetDrivingCameraComponent(ViewportClient);
-	}
-
-	if (!DrivingCamera)
-	{
-		return;
-	}
-
-	FLoops2DPanZoomState& State = GetState(ViewportClient);
-
-	FMinimalViewInfo ViewInfo;
-	DrivingCamera->GetCameraView(0.0f, ViewInfo);
-	State.BaseLocation = ViewInfo.Location;
-	State.BaseRotation = ViewInfo.Rotation;
-	State.BaseFOV = ViewInfo.FOV;
-	State.bHasBase = true;
-
-	ApplyToCamera(ViewportClient, State);
-}
-
 void ULoops2DPanZoomSubsystem::Pan(FEditorViewportClient* ViewportClient, const FVector2D& ScreenDelta, const FIntPoint& ViewportSize)
 {
 	if (!ViewportClient || ViewportSize.X <= 0 || ViewportSize.Y <= 0)
@@ -358,7 +314,14 @@ void ULoops2DPanZoomSubsystem::Pan(FEditorViewportClient* ViewportClient, const 
 
 	if (ViewportClient->IsPerspective())
 	{
-		const float CurrentFOV = FMath::Clamp(State.BaseFOV / SafeZoom, Loops2DPanZoomLimits::MinFOV, Loops2DPanZoomLimits::MaxFOV);
+		// Perspective projection scale is proportional to 1/tan(FOV/2), so a
+		// zoom factor Z gives effective FOV = 2*atan(tan(baseFOV/2)/Z).
+		// Match ModifyView's zoom instead of the old baseFOV/Z approximation,
+		// then use that angle for the existing degrees-per-pixel pan sensitivity.
+		// Read live ViewFOV so animated lenses and camera cuts affect sensitivity.
+		// This is angular pan sensitivity, not an exact screen-space translation.
+		const float HalfFOV = FMath::DegreesToRadians(FMath::Clamp(ViewportClient->ViewFOV, 0.001f, 179.0f) * 0.5f);
+		const float CurrentFOV = FMath::RadiansToDegrees(2.0f * FMath::Atan(FMath::Tan(HalfFOV) / SafeZoom));
 		const float DegreesPerPixel = CurrentFOV / static_cast<float>(ViewportSize.X);
 		State.PanOffset.X -= ScreenDelta.X * DegreesPerPixel;
 		State.PanOffset.Y += ScreenDelta.Y * DegreesPerPixel;
@@ -545,7 +508,7 @@ bool ULoops2DPanZoomSubsystem::EnableAnimControlLock(FEditorViewportClient* View
 		return false;
 	}
 
-	CaptureBaseIfNeeded(ViewportClient, State);
+	SetEnabled(ViewportClient, true);
 	State.bAnimControlLockEnabled = true;
 	State.AnimControlLockControlName = ControlName.ToString();
 	UpdateAnimControlLockPan(ViewportClient, State, ControlWorldTransform.GetLocation());
@@ -560,6 +523,19 @@ void ULoops2DPanZoomSubsystem::DisableAnimControlLock(FEditorViewportClient* Vie
 	State.bAnimControlLockEnabled = false;
 	State.AnimControlLockControlName.Empty();
 	RefreshOverlayPresence(ViewportClient, State);
+}
+
+void ULoops2DPanZoomSubsystem::RemoveClosedViewports()
+{
+	// Viewport clients are not UObjects. Drop closed viewports before dereferencing
+	// their keys (for example after changing the editor viewport layout).
+	for (auto It = ViewportStates.CreateIterator(); It; ++It)
+	{
+		if (!GEditor || !GEditor->GetAllViewportClients().Contains(It.Key()))
+		{
+			It.RemoveCurrent();
+		}
+	}
 }
 
 void ULoops2DPanZoomSubsystem::TickAllAnimControlLocks()

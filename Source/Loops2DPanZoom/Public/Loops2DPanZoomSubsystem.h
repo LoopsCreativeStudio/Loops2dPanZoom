@@ -7,6 +7,7 @@
 #include "Loops2DPanZoomSubsystem.generated.h"
 
 class FEditorViewportClient;
+struct FEditorViewportViewModifierParams;
 class SWidget;
 
 
@@ -45,6 +46,7 @@ struct FLoops2DPanZoomState
 	bool bPreToggleAnimControlLockEnabled = false;
 
 	TSharedPtr<SWidget> OverlayWidget;
+	FDelegateHandle ViewModifierHandle;
 };
 
 // Drives 2D Pan/Zoom per-viewport, keyed by the FEditorViewportClient pointer.
@@ -54,6 +56,7 @@ class LOOPS2DPANZOOM_API ULoops2DPanZoomSubsystem : public UEditorSubsystem
 	GENERATED_BODY()
 
 	public:
+		virtual void Deinitialize() override;
 		bool IsEnabled(const FEditorViewportClient* ViewportClient) const;
 		void SetEnabled(FEditorViewportClient* ViewportClient, bool bEnabled);
 		void ToggleEnabled(FEditorViewportClient* ViewportClient);
@@ -62,8 +65,6 @@ class LOOPS2DPANZOOM_API ULoops2DPanZoomSubsystem : public UEditorSubsystem
 		void Reset(FEditorViewportClient* ViewportClient);
 		void ToggleZoomTo100Percent(FEditorViewportClient* ViewportClient);
 		bool GetOverlayInfo(const FEditorViewportClient* ViewportClient, float& OutZoomPercent, FVector2D& OutCropSize, FVector2D& OutCropCenterOffset, bool& OutIsAnimControlLockActive, FString& OutAnimControlLockControlName) const;
-		void TickFollowCameraCut(FEditorViewportClient* ViewportClient);
-		void NotifyCameraCut(UObject* CameraObject);
 		bool IsAnimControlLockEnabled(const FEditorViewportClient* ViewportClient) const;
 		void ToggleAnimControlLock(FEditorViewportClient* ViewportClient);
 		void TickAllAnimControlLocks();
@@ -87,5 +88,7 @@ class LOOPS2DPANZOOM_API ULoops2DPanZoomSubsystem : public UEditorSubsystem
 		void DisableAnimControlLock(FEditorViewportClient* ViewportClient, FLoops2DPanZoomState& State);
 
 		TMap<FEditorViewportClient*, FLoops2DPanZoomState> ViewportStates;
-		TWeakObjectPtr<UObject> LastCameraCutObject;
+		FDelegateHandle ViewportListChangedHandle;
+		void RemoveClosedViewports();
+		void ModifyView(FEditorViewportViewModifierParams& Params);
 };
