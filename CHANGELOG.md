@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.7.0](https://github.com/LoopsCreativeStudio/Loops2dPanZoom/compare/v1.6.0...v1.7.0) (2026-09-22)
+
+
+### Features
+
+* make numpad shortcuts rebindable, guard text fields ([768dc6e](https://github.com/LoopsCreativeStudio/Loops2dPanZoom/commit/768dc6eb2122e7122163ab92bcf8bd5af392faaa))
+
 ## [1.6.0](https://github.com/LoopsCreativeStudio/Loops2dPanZoom/compare/v1.5.0...v1.6.0) (2026-09-22)
 
 
