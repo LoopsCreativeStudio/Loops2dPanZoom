@@ -40,8 +40,7 @@ int32 SLoops2DPanZoomOverlay::OnPaint(const FPaintArgs& Args, const FGeometry& A
 	FVector2D CropSize = FVector2D(1.0f, 1.0f);
 	FVector2D CropCenterOffset = FVector2D::ZeroVector;
 	bool bIsAnimControlLockActive = false;
-	FString AnimControlLockControlName;
-	if (!Subsystem || !Subsystem->GetOverlayInfo(ViewportClient, ZoomPercent, CropSize, CropCenterOffset, bIsAnimControlLockActive, AnimControlLockControlName))
+	if (!Subsystem || !Subsystem->GetOverlayInfo(ViewportClient, ZoomPercent, CropSize, CropCenterOffset, bIsAnimControlLockActive))
 	{
 		return LayerId;
 	}

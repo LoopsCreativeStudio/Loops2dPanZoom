@@ -269,7 +269,7 @@ void ULoops2DPanZoomSubsystem::RefreshOverlayPresence(FEditorViewportClient* Vie
 	}
 }
 
-bool ULoops2DPanZoomSubsystem::GetOverlayInfo(const FEditorViewportClient* ViewportClient, float& OutZoomPercent, FVector2D& OutCropSize, FVector2D& OutCropCenterOffset, bool& OutIsAnimControlLockActive, FString& OutAnimControlLockControlName) const
+bool ULoops2DPanZoomSubsystem::GetOverlayInfo(const FEditorViewportClient* ViewportClient, float& OutZoomPercent, FVector2D& OutCropSize, FVector2D& OutCropCenterOffset, bool& OutIsAnimControlLockActive) const
 {
 	const FLoops2DPanZoomState* State = FindState(ViewportClient);
 	if (!State || !State->bHasBase || !ViewportClient || (!State->bEnabled && !State->bAnimControlLockEnabled))
@@ -291,7 +291,6 @@ bool ULoops2DPanZoomSubsystem::GetOverlayInfo(const FEditorViewportClient* Viewp
 	);
 
 	OutIsAnimControlLockActive = State->bAnimControlLockEnabled;
-	OutAnimControlLockControlName = State->AnimControlLockControlName;
 
 	return true;
 }
@@ -403,7 +402,7 @@ void ULoops2DPanZoomSubsystem::ToggleZoomTo100Percent(FEditorViewportClient* Vie
 
 
 // TODO : Extract ControlRig function to Loops2DPanZoomControlRig
-bool ULoops2DPanZoomSubsystem::GetSelectedControlWorldTransform(FTransform& OutTransform, FName* OutControlName) const
+bool ULoops2DPanZoomSubsystem::GetSelectedControlWorldTransform(FTransform& OutTransform) const
 {
 	FControlRigEditMode* ControlRigEditMode = static_cast<FControlRigEditMode*>(
 		GLevelEditorModeTools().GetActiveMode(FControlRigEditMode::ModeName));
@@ -440,20 +439,10 @@ bool ULoops2DPanZoomSubsystem::GetSelectedControlWorldTransform(FTransform& OutT
 		}
 
 		OutTransform = ControlTransform;
-		if (OutControlName)
-		{
-			*OutControlName = Pair.Value[0].Name;
-		}
 		return true;
 	}
 
 	return false;
-}
-
-bool ULoops2DPanZoomSubsystem::IsAnimControlLockEnabled(const FEditorViewportClient* ViewportClient) const
-{
-	const FLoops2DPanZoomState* State = FindState(ViewportClient);
-	return State && State->bAnimControlLockEnabled;
 }
 
 void ULoops2DPanZoomSubsystem::UpdateAnimControlLockPan(FEditorViewportClient* ViewportClient, FLoops2DPanZoomState& State, const FVector& ControlWorldLocation)
@@ -501,8 +490,7 @@ bool ULoops2DPanZoomSubsystem::EnableAnimControlLock(FEditorViewportClient* View
 	}
 
 	FTransform ControlWorldTransform;
-	FName ControlName;
-	if (!GetSelectedControlWorldTransform(ControlWorldTransform, &ControlName))
+	if (!GetSelectedControlWorldTransform(ControlWorldTransform))
 	{
 		// Nothing selected: the shortcut/restore is a no-op.
 		return false;
@@ -510,7 +498,6 @@ bool ULoops2DPanZoomSubsystem::EnableAnimControlLock(FEditorViewportClient* View
 
 	SetEnabled(ViewportClient, true);
 	State.bAnimControlLockEnabled = true;
-	State.AnimControlLockControlName = ControlName.ToString();
 	UpdateAnimControlLockPan(ViewportClient, State, ControlWorldTransform.GetLocation());
 	RefreshOverlayPresence(ViewportClient, State);
 	ApplyToCamera(ViewportClient, State);
@@ -521,7 +508,6 @@ void ULoops2DPanZoomSubsystem::DisableAnimControlLock(FEditorViewportClient* Vie
 {
 	// Unlock: leave the camera exactly where it currently sits.
 	State.bAnimControlLockEnabled = false;
-	State.AnimControlLockControlName.Empty();
 	RefreshOverlayPresence(ViewportClient, State);
 }
 
@@ -555,8 +541,7 @@ void ULoops2DPanZoomSubsystem::TickAllAnimControlLocks()
 	}
 
 	FTransform ControlWorldTransform;
-	FName ControlName;
-	if (!GetSelectedControlWorldTransform(ControlWorldTransform, &ControlName))
+	if (!GetSelectedControlWorldTransform(ControlWorldTransform))
 	{
 		// Selection lost: freeze the camera(s) at their last known aim rather than moving them.
 		return;
@@ -571,7 +556,6 @@ void ULoops2DPanZoomSubsystem::TickAllAnimControlLocks()
 			continue;
 		}
 
-		State.AnimControlLockControlName = ControlName.ToString();
 		UpdateAnimControlLockPan(ViewportClient, State, ControlWorldTransform.GetLocation());
 		ApplyToCamera(ViewportClient, State);
 	}

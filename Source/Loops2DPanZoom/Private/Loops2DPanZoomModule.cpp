@@ -186,20 +186,31 @@ ECheckBoxState FLoops2DPanZoomModule::GetToggleCheckState(const FToolMenuContext
 
 FText FLoops2DPanZoomModule::GetToggleTooltipText() const
 {
-	const FText BaseTooltip = FText::Format(LOCTEXT("Loops2DPanZoomToggleTooltip",
+	const FLoops2DPanZoomCommands& Commands = FLoops2DPanZoomCommands::Get();
+
+	FFormatOrderedArguments Args;
+	Args.Add(Commands.ToggleAndDrag->GetInputText());
+	Args.Add(Commands.Reset->GetInputText());
+	Args.Add(Commands.PanLeft->GetInputText());
+	Args.Add(Commands.PanRight->GetInputText());
+	Args.Add(Commands.PanUp->GetInputText());
+	Args.Add(Commands.PanDown->GetInputText());
+	Args.Add(Commands.ZoomIn->GetInputText());
+	Args.Add(Commands.ZoomOut->GetInputText());
+	Args.Add(Commands.ToggleZoom100->GetInputText());
+	Args.Add(Commands.ToggleControlLock->GetInputText());
+
+	return FText::Format(LOCTEXT("Loops2DPanZoomToggleTooltip",
 		"Loops 2D Pan/Zoom\n"
 		"Tap {0} to toggle\n"
 		"{1} to reset the view\n"
 		"Hold {0} + MMB drag to pan (tilts the camera in place)\n"
 		"Hold {0} + RMB drag to zoom (adjusts FOV / ortho zoom)\n"
 		"Toggle/drag and reset shortcuts default to Animation Mode only\n"
-		"Numpad 4/6/8/2 to pan, Numpad +/- to zoom\n"
-		"Numpad * to toggle zoom+pan between their current values and 100%\n"
-		"Numpad . to lock the camera to the selected Control Rig control\n"),
-		FLoops2DPanZoomCommands::Get().ToggleAndDrag->GetInputText(),
-		FLoops2DPanZoomCommands::Get().Reset->GetInputText());
-
-	return BaseTooltip;
+		"{2}/{3}/{4}/{5} to pan, {6}/{7} to zoom\n"
+		"{8} to toggle zoom+pan between their current values and 100%\n"
+		"{9} to lock the camera to the selected Control Rig control\n"),
+		Args);
 }
 
 #undef LOCTEXT_NAMESPACE
