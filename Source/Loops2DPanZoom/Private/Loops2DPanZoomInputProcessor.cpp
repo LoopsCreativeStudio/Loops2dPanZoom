@@ -40,7 +40,7 @@ namespace Loops2DPanZoomInput
 		return nullptr;
 	}
 
-	static bool CanUseModeShortcuts(FSlateApplication& SlateApp)
+	static bool CanUseShortcuts(FSlateApplication& SlateApp)
 	{
 		if (!GEditor || !SlateApp.IsActive() || SlateApp.GetActiveModalWindow()) { return false; }
 		// Protect text entry without requiring viewport focus.
@@ -48,8 +48,16 @@ namespace Loops2DPanZoomInput
 		{
 			if (Widget->GetTypeAsString().Contains(TEXT("EditableText"))) { return false; }
 		}
-		return !GetDefault<ULoops2DPanZoomSettings>()->bAnimationModeOnly
-			|| GLevelEditorModeTools().IsModeActive(FControlRigEditMode::ModeName);
+		return true;
+	}
+
+	// The above, plus the Animation Mode Only preference. Reserved for the shortcuts that must be
+	// handed back to Unreal outside Animation Mode.
+	static bool CanUseModeShortcuts(FSlateApplication& SlateApp)
+	{
+		return CanUseShortcuts(SlateApp)
+			&& (!GetDefault<ULoops2DPanZoomSettings>()->bAnimationModeOnly
+				|| GLevelEditorModeTools().IsModeActive(FControlRigEditMode::ModeName));
 	}
 }
 
@@ -104,8 +112,15 @@ bool FLoops2DPanZoomInputProcessor::HandleKeyDownEvent(FSlateApplication& SlateA
 		return true;
 	}
 
-	if (Key == EKeys::Decimal)
+	if (Commands.ToggleControlLock->HasActiveChord(Chord))
 	{
+		// The Control Rig lock is a Control Rig feature, so it keeps the full gate, Animation Mode
+		// included. Returning false leaves the key to Unreal instead of consuming it.
+		if (!Loops2DPanZoomInput::CanUseModeShortcuts(SlateApp))
+		{
+			return false;
+		}
+
 		ULoops2DPanZoomSubsystem* Subsystem = GEditor ? GEditor->GetEditorSubsystem<ULoops2DPanZoomSubsystem>() : nullptr;
 		FEditorViewportClient* Client = Loops2DPanZoomInput::GetActiveEditorViewportClient();
 		if (!Subsystem || !Client)
@@ -117,11 +132,23 @@ bool FLoops2DPanZoomInputProcessor::HandleKeyDownEvent(FSlateApplication& SlateA
 		return true;
 	}
 
-	const bool bIsZoomKey = Key == EKeys::Add || Key == EKeys::Subtract;
-	const bool bIsPanKey = Key == EKeys::NumPadFour || Key == EKeys::NumPadSix
-		|| Key == EKeys::NumPadEight || Key == EKeys::NumPadTwo;
-	const bool bIsZoomToggleKey = Key == EKeys::Multiply;
-	if (!bIsZoomKey && !bIsPanKey && !bIsZoomToggleKey)
+	const bool bIsZoomIn = Commands.ZoomIn->HasActiveChord(Chord);
+	const bool bIsZoomOut = Commands.ZoomOut->HasActiveChord(Chord);
+	const bool bIsPanLeft = Commands.PanLeft->HasActiveChord(Chord);
+	const bool bIsPanRight = Commands.PanRight->HasActiveChord(Chord);
+	const bool bIsPanUp = Commands.PanUp->HasActiveChord(Chord);
+	const bool bIsPanDown = Commands.PanDown->HasActiveChord(Chord);
+	const bool bIsZoomToggle = Commands.ToggleZoom100->HasActiveChord(Chord);
+	const bool bIsPanKey = bIsPanLeft || bIsPanRight || bIsPanUp || bIsPanDown;
+
+	if (!bIsZoomIn && !bIsZoomOut && !bIsPanKey && !bIsZoomToggle)
+	{
+		return false;
+	}
+
+	// These stay available in every editor mode, as the Animation Mode Only preference promises, but
+	// they must still never be taken out of a text field.
+	if (!Loops2DPanZoomInput::CanUseShortcuts(SlateApp))
 	{
 		return false;
 	}
@@ -133,16 +160,16 @@ bool FLoops2DPanZoomInputProcessor::HandleKeyDownEvent(FSlateApplication& SlateA
 		return false;
 	}
 
-	if (bIsZoomToggleKey)
+	if (bIsZoomToggle)
 	{
 		Subsystem->ToggleZoomTo100Percent(Client);
 		return true;
 	}
 
-	if (bIsZoomKey)
+	if (bIsZoomIn || bIsZoomOut)
 	{
 		constexpr float KeyZoomStep = 0.12f;
-		Subsystem->Zoom(Client, Key == EKeys::Add ? KeyZoomStep : -KeyZoomStep);
+		Subsystem->Zoom(Client, bIsZoomIn ? KeyZoomStep : -KeyZoomStep);
 		return true;
 	}
 
@@ -150,19 +177,19 @@ bool FLoops2DPanZoomInputProcessor::HandleKeyDownEvent(FSlateApplication& SlateA
 	{
 		constexpr float KeyPanStepPixels = 20.0f;
 		FVector2D ScreenDelta = FVector2D::ZeroVector;
-		if (Key == EKeys::NumPadFour)
+		if (bIsPanLeft)
 		{
 			ScreenDelta = FVector2D(KeyPanStepPixels, 0.0f);
 		}
-		else if (Key == EKeys::NumPadSix)
+		else if (bIsPanRight)
 		{
 			ScreenDelta = FVector2D(-KeyPanStepPixels, 0.0f);
 		}
-		else if (Key == EKeys::NumPadEight)
+		else if (bIsPanUp)
 		{
 			ScreenDelta = FVector2D(0.0f, KeyPanStepPixels);
 		}
-		else if (Key == EKeys::NumPadTwo)
+		else if (bIsPanDown)
 		{
 			ScreenDelta = FVector2D(0.0f, -KeyPanStepPixels);
 		}
